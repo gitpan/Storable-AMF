@@ -1,13 +1,13 @@
+use lib 't';
 use strict;
 use warnings;
 use ExtUtils::testlib;
 use Storable::AMF;
 use Test::More tests => 16;
 
-use Cwd;
 use GrianUtils;
 use File::Spec;
-use FindBin;
+$FindBin::Bin = 't';
 sub data{
 	my $file = File::Spec->catfile( $FindBin::Bin, $_[0] );
 	my @values = Storable::thaw(GrianUtils->my_readfile($file));

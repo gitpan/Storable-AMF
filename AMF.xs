@@ -25,6 +25,9 @@
 #define MARKER3_OBJECT	'\x0a'
 
 #define STR_EMPTY    '\x01'
+#define TRACE(ELEM) fprintf( stderr, "%s\n", (ELEM));
+#undef TRACE
+#define TRACE(ELEM) ;
 
 struct amf3_restore_point{
 	int offset_buffer;
@@ -442,9 +445,9 @@ inline void format_string(struct io_struct *io, SV * one){
 	// TODO: process long string
 	if (SvPOK(one)){
 		// 
-		if (!SvUTF8(one)) {
-			sv_utf8_upgrade(one);
-		};
+//#~ 		if (!SvUTF8(one)) {
+//#~ 			sv_utf8_upgrade(one);
+//#~ 		};
 
 		write_marker(io, '\x02');
 		write_u16(io, SvCUR(one));
@@ -724,7 +727,7 @@ inline SV * parse_utf8(struct io_struct * io){
 	int string_len = read_u16(io);
 	SV * RETVALUE;
 	RETVALUE = newSVpv(read_chars(io, string_len), string_len);
-	SvUTF8_on(RETVALUE);
+	//SvUTF8_on(RETVALUE);
 
 	return RETVALUE;
 //	return read_PV(io, string_len);
@@ -897,7 +900,7 @@ inline SV* parse_long_string(struct io_struct *io){
 	len = read_u32(io);
 		
 	RETVALUE = newSVpvn(read_chars(io, len), len);
-	SvUTF8_on(RETVALUE);
+	//SvUTF8_on(RETVALUE);
 	return RETVALUE;
 }
 
@@ -1011,7 +1014,7 @@ SV * amf3_parse_string (struct io_struct *io){
 	pstr = amf3_read_string(io, ref_len, &plen);
 //	fprintf( stderr, "A(%s, %d, %d)\n", pstr, plen, ref_len);
 	RETVALUE = newSVpvn(pstr, plen);
-	SvUTF8_on(RETVALUE);
+	//SvUTF8_on(RETVALUE);
 	return RETVALUE;
 }
 SV * amf3_parse_xml_doc (struct io_struct *io){
@@ -1025,9 +1028,9 @@ SV * amf3_parse_date (struct io_struct *io){
 	return RETVALUE;
 }
 
-inline store_object(struct io_struct *io, SV * item){
+inline amf3_store_object(struct io_struct *io, SV * item){
 	//fprintf( stderr, "store ref %p %d %p\n", io->arr_object, io->rc_object, item);
-	av_store(io->arr_object, io->rc_object, newRV(item));
+	av_push(io->arr_object, newRV(item));
 	io->rc_object++;
 }
 
@@ -1037,6 +1040,7 @@ SV * amf3_parse_array (struct io_struct *io){
 	if (ref_len & 1){
 		// Not referense
 		int len = ref_len>>1;
+		TRACE("Parse first array");
 		int str_len;
 		SV * item;
 		char * pstr;
@@ -1053,7 +1057,7 @@ SV * amf3_parse_array (struct io_struct *io){
 
 		array=newAV();
 		item = (SV *) array;
-		store_object(io, item);
+		amf3_store_object(io, item);
 		
 		recover = FALSE;
 		old_vlen = str_len;
@@ -1073,11 +1077,6 @@ SV * amf3_parse_array (struct io_struct *io){
 			str_len = amf3_read_integer(io);
 		};
 		
-		if (recover){
-			io_restorepoint(io, &rec_point);	
-			str_len = old_vlen;
-		};
-		
 		if (!recover) {
 			int i;
 			for(i=0; i< len; ++i){
@@ -1085,7 +1084,8 @@ SV * amf3_parse_array (struct io_struct *io){
 			};
 		}
 		else {
-
+			io_restorepoint(io, &rec_point);	
+			str_len = old_vlen;
 			HV * hv = newHV();
 			SV * sv;
 			char *pstr;
@@ -1093,14 +1093,13 @@ SV * amf3_parse_array (struct io_struct *io){
 			char buf[2+2*sizeof(int)];
 			int i;
 			item = (SV *) hv;
-			store_object(io, item);
+			amf3_store_object(io, item);
 			while(str_len != 1){
 				SV *one;
 				pstr = amf3_read_string(io, str_len, &plen);
 				one = amf3_parse_one(io);
 				hv_store(hv, pstr, plen, one, 0);
 				str_len = amf3_read_integer(io);
-				//fprintf( stderr, "A(%d)\n", str_len);
 			
 			};
 			for(i=0; i<len;++i){
@@ -1113,7 +1112,6 @@ SV * amf3_parse_array (struct io_struct *io){
 	}
 	else {
 		SV ** value = av_fetch(io->arr_object, ref_len>>1, 0);	
-		//fprintf( stderr, "get reference %p %d %p\n", io->arr_object, ref_len, value);
 		if (value) {
 			RETVALUE = newRV(SvRV(*value));
 		}
@@ -1132,18 +1130,18 @@ struct amf3_trait_struct{
 SV * amf3_parse_object (struct io_struct *io){
 	SV * RETVALUE;
 	int obj_ref = amf3_read_integer(io);
-	// fprintf( stderr, "Parse object ref-obj=%d\n", obj_ref);
 	if (obj_ref & 1) {// not a ref object
 		AV * trait;
 		int sealed;
 		bool dynamic;
 		HV * stash;
 		SV * class_name_sv;
-		char * class_name;
-		STRLEN class_name_len;
+		//char * class_name;
+		//STRLEN class_name_len;
 		HV *one;
 		int i;
 
+		TRACE("Parse first object");
 		if (!(obj_ref & 2)){// not trait ref
 			SV** trait_item	= av_fetch(io->arr_trait, obj_ref>>2, 0);
 			if (! trait_item) {
@@ -1163,7 +1161,7 @@ SV * amf3_parse_object (struct io_struct *io){
 			dynamic = obj_ref & 8;
 			
 			class_name_sv = amf3_parse_string(io);
-			class_name = SvPV(class_name_sv, class_name_len);
+			//class_name = SvPV(class_name_sv, class_name_len);
 			
 			//fprintf( stderr, "A(%d, %d, %d, %s)\n", sealed, dynamic, class_name_len, class_name);
 			av_push(trait, newSViv(sealed));
@@ -1183,9 +1181,10 @@ SV * amf3_parse_object (struct io_struct *io){
 
 		}
 		one = newHV();
-		av_push(io->arr_object, newRV_noinc((SV*)one));
-		RETVALUE = newRV((SV*) one);
-		if (class_name_len) {
+		//av_push(io->arr_object, newRV_noinc((SV*)one));
+		amf3_store_object(io, (SV*)one);
+		RETVALUE = newRV_noinc((SV*) one);
+		if (SvCUR(class_name_sv)) {
 			sv_bless(RETVALUE, gv_stashsv(class_name_sv, GV_ADD));
 		}
 
@@ -1210,6 +1209,7 @@ SV * amf3_parse_object (struct io_struct *io){
 		}
 	}
 	else {
+		TRACE("Parse refs");
 		SV ** ref = av_fetch(io->arr_object, obj_ref>>1, 0);
 		if (ref) {
 			RETVALUE = newRV(SvRV(*ref));
@@ -1569,8 +1569,8 @@ SV * deep_clone(SV * value){
 	}
 }
 			
-
-MODULE = Storable::AMF		PACKAGE = Storable::AMF		
+MODULE = Storable::AMF	PACKAGE = Storable::AMF
+MODULE = Storable::AMF0		PACKAGE = Storable::AMF0		
 
 void 
 dclone(SV * data)
@@ -1644,7 +1644,7 @@ void freeze(data)
 		//retvalue = sv_2mortal(newSVnv(1.0));
 		XPUSHs(retvalue);
 
-MODULE = Storable::AMF		PACKAGE = Storable::AMF3		
+MODULE = Storable::AMF0		PACKAGE = Storable::AMF3		
 void
 thaw(data)
 	SV * data
@@ -1658,7 +1658,7 @@ thaw(data)
 		io_in_init(&io_record, io_self, data, AMF3);
 		sv_2mortal(SvRV(io_self));
 		sv_2mortal(io_self);
-
+		
 		if (SvPOK(data)){
 			int error_code;
 			if (error_code = setjmp(io_record.target_error)){
@@ -1706,5 +1706,6 @@ void freeze(data)
 
 		sv_2mortal(io_self);
 		retvalue = sv_2mortal(io_buffer(&io_record));
-		//retvalue = sv_2mortal(newSVnv(1.0));
 		XPUSHs(retvalue);
+
+MODULE = Storable::AMF	PACKAGE = Storable::AMF

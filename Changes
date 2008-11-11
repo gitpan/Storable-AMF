@@ -1,6 +1,47 @@
-Revision history for Perl extension Data::AMF::XS.
+Revision history for Perl extension Storable::AMF.
 
 0.01  Mon Aug 25 13:04:31 2008
 	- original version; created by h2xs 1.23 with options
 		-A -n Data::AMF::XS
+
+0.0200 (  404) 2008-09-01 13:25:47 +0400 
+	- blessed referenses added
+
+0.0200 (  405) 2008-09-01 15:21:37 +0400 
+	- added documentation
+	- some error handling
+
+0.0200 (  452) 2008-09-04 12:18:11 +0400 
+	- add warnings && some code improvement && use setjmp
+	- speed up  dclone for 20% gain
+	- add prototypes
+
+0.0200 (  487) 2008-09-26 18:30:43 +0400 
+	- Minor error fixes
+
+0.0200 (  523) 2008-10-08 11:11:48 +0400 
+	- fixed error with null array element
+	- added support for self referenses structures
+
+0.0200 (  528) 2008-10-09 13:15:56 +0400 
+	- fixed ecma_array
+	- Create lots of real data tests 08(real-data)
+	- Add unicode support
+
+0.0200 (  533) 2008-10-10 13:34:13 +0400 
+	- begin work for AMF3
+	- amf3 numbers worked
+	- added strings for amf3
+	- added  tests for AMF3 and improve Storable::AMF3 (array && objects)
+
+0.1200 (  540) 2008-10-16 13:55:15 +0400 
+	- Tested for memory leak (mainly AMF0 and some AMF3) 
+	- Uploaded to cpan
+	- find bug report
+
+0.1400 (  581) 2008-11-07 11:25:31 +0300 
+	- improved docs
+	- deleted unused filex
+	- improved doc and tests
+	- remove UTF8 support
 

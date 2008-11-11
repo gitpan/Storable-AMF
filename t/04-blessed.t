@@ -1,15 +1,15 @@
+use lib 't';
 use strict;
 use warnings;
 use ExtUtils::testlib;
 use Storable::AMF;
 use Test::More tests => 5;
 
-use Cwd;
 use GrianUtils;
 use File::Spec;
-use FindBin;
+our $TestDir = 't';
 sub data{
-	my $file = File::Spec->catfile( $FindBin::Bin, $_[0] );
+	my $file = File::Spec->catfile( $TestDir, $_[0] );
 	my @values = Storable::thaw(GrianUtils->my_readfile($file));
 	if (@values> 1) {
 		print STDERR "many returned values\n";
@@ -18,7 +18,7 @@ sub data{
 };
 
 sub get_file{
-	my $file = File::Spec->catfile( $FindBin::Bin, $_[0] );
+	my $file = File::Spec->catfile( $TestDir, $_[0] );
 	return GrianUtils->my_readfile($file);
 }
 

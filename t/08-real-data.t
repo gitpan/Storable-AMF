@@ -1,8 +1,10 @@
+use lib 't';
 use strict;
 use warnings;
 use Storable::AMF qw(freeze thaw retrieve);
 use Data::Dumper;
 use GrianUtils;
+use subs 'skip';
 
 my @item = grep { $_!~m/\./ } GrianUtils->my_readdir('t/08/AMF');
 
@@ -17,9 +19,16 @@ for my $item (@item){
 	my $obj = retrieve("$item.amf0");
 	my $image = GrianUtils->my_readfile("$item.amf0");
 	my $eval  = GrianUtils->my_readfile("$item");
-	ok(defined($obj), $item);	
-	no strict;
-	is_deeply($obj, eval $eval, $item.":\n\t$eval");
+	if ($eval =~m/use\s+utf8/) {
+		SKIP: {
+			skip "Convetation on utf8 not supported", 2;
+		}
+	}
+	else {
+		ok(defined($obj), $item);	
+		no strict;
+		is_deeply($obj, eval $eval, $item.":\n\t$eval");
+	}
 }
 
 

@@ -4,7 +4,7 @@ MANIFEST
 ppport.h
 README
 AMF.xs
-GrianUtils.pm
+t/GrianUtils.pm
 lib/Storable/AMF.pm
 lib/Storable/AMF0.pm
 lib/Storable/AMF3.pm
@@ -143,7 +143,6 @@ t/27/tobject_3_0
 t/27/tobject_3_0.amf0
 t/27/tobject_3_0.amf3
 t/28-all-amf0-amf3.t
-t/29-some.t1
 t/30-can-all.t
 t/data/amf0/boolean_false
 t/data/amf0/boolean_true

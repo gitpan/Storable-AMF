@@ -1,15 +1,10 @@
 package GrianUtils;
 use strict;
 use warnings;
-use DBI;
-use Carp;
-use Storable qw();
 use Storable::AMF qw() ;
 use Carp qw/carp croak/;
 use Fcntl qw(:flock);
-BEGIN{
-#	eval 'use XS::Pg;';	
-}
+use File::Spec;
 
 sub hash_contain_only{
 	my $self = shift;
@@ -85,14 +80,6 @@ sub pg_thaw{
 		carp "Unknown encoding at pg_thaw";
 	}
 }
-
-#~ BEGIN{
-#~ 	our %pg_encode = ("\000" => "\376", "\376"=>"\377\376", "\377"=>"\377\377");
-#~ 	our %pg_decode = reverse %pg_encode;
-#~ 	my $string = join "", map {chr$_} 0..255;
-#~ 	die "Assertion pg_decode(pg_encode(x)) eq x failed" unless $string eq __PACKAGE__->pg_decode(__PACKAGE__->pg_encode($string)); 
-#~ }
-#~ 
 
 sub my_readdir{
 	my $class = shift;

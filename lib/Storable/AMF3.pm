@@ -4,7 +4,7 @@ use 5.008008;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.12';
+our $VERSION = '0.14';
 
 require Exporter;
 
@@ -14,9 +14,6 @@ our @ISA = qw(Exporter);
 # names by default without a very good reason. Use EXPORT_OK instead.
 # Do not simply export all your public functions/methods/constants.
 
-# This allows declaration	use Data::AMF::XS ':all';
-# If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
-# will save memory.
 our %EXPORT_TAGS = ( 'all' => [ qw(
 	freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store
 ) ] );
@@ -92,7 +89,7 @@ sub lock_nstore{
 require XSLoader;
 XSLoader::load('Storable::AMF', $VERSION);
 no warnings;
-*Storable::AMF3::dclone = *Storable::AMF::dclone;
+*Storable::AMF3::dclone = *Storable::AMF0::dclone;
 
 # Preloaded methods go here.
 
@@ -102,64 +99,102 @@ __END__
 
 =head1 NAME
 
-Storable::AMF - Perl extension for serialize/deserialize AMF date
+Storable::AMF3 - Perl extension for serialize/deserialize AMF3 date
 
 =head1 SYNOPSIS
 
-  use Storable::AMF qw(freeze thaw);
+  use Storable::AMF3 qw(freeze thaw); 
 
-  store \%table, 'file';
-  $hashref = retrieve('file');
+  $amf3 = freeze($perl_object);
+  $perl_object = thaw($amf3);
 
-  use Storable::AMF qw(nstore store_fd nstore_fd freeze thaw dclone);
+	
+  # Store/retrieve to disk amf3 data
+	
+  store $perl_object, 'file';
+  $restored_perl_object = retrieve 'file';
 
-  # Network order: always store in network order 
-  # and nstore and store are synonyms 
+
+  use Storable::AMF3 qw(nstore freeze thaw dclone);
+
+  # Network order: Due to spec of AMF3 format objects (hash, arrayref) stored in network order.
+  # and thus nstore and store are synonyms 
 
   nstore \%table, 'file';
-  $hashref = retrieve('file');  # There is NO nretrieve()
+  $hashref = retrieve('file'); 
 
-  # Serializing to memory
-  $serialized = freeze \%table;
-  %table_clone = %{ thaw($serialized) };
   
   # Advisory locking
-  use Storable::AMF qw(lock_store lock_nstore lock_retrieve)
+  use Storable::AMF3 qw(lock_store lock_nstore lock_retrieve)
   lock_store \%table, 'file';
   lock_nstore \%table, 'file';
   $hashref = lock_retrieve('file');
 
+=cut
+
 =head1 DESCRIPTION
 
-This module is (de)serializer for Adobe's AMF (Action Message Format).
+This module is (de)serializer for Adobe's AMF3 (Action Message Format ver 3).
 This is only module and it recognize only AMF data. 
-Core function implemented in C. And some cases faster then Storable( for me alwaye)
+Almost all function implemented in C for speed. 
+And some cases faster then Storable( for me always)
 
-=head2 EXPORT
+=cut
 
-None by default.
+=head1 EXPORT
+  
+  None by default.
 
-=head1 METHOD
-=head2 freeze($obj) 
-Serialize perl object($obj) to AMF, and return AMF data
+=cut
+=head1 FUNCTIONS
+=cut
 
-=head2 thaw($amf0)
-Deserialize AMF data to perl object, and return the perl object
+=over
+
+=item freeze($obj) 
+  --- Serialize perl object($obj) to AMF, and return AMF data
+
+=item thaw($amf3)
+  --- Deserialize AMF data to perl object, and return the perl object
+
+=item store $obj, $file
+  --- Store serialized AMF3 data to file
+
+=item nstore $obj, $file
+  --- Same as store
+
+=item retrieve $obj, $file
+  --- Retrieve serialized AMF3 data from file
+
+=item lock_store $obj, $file
+  --- Same as store but with Advisory locking
+
+=item lock_nstore $obj, $file
+  --- Same as lock_store 
+
+=item lock_retrieve $file
+  --- Same as retrieve but with advisory locking
+
+=item dclone $file
+  --- Deep cloning data structure
+
+=back
 
 =head1 NOTICE
 
-Storable::AMF is currently is very alpha development stage/
-This current version is not support AMF3. 
+  Storable::AMF is currently is alpha development stage. 
+
+=cut
 
 =head1 LIMITATION
 
-At current moment freeze not support for nested reference in object and utf8 string not marked 
-by default. It not serialize tied variables.
-
+At current moment and with restriction of AMF3 format referrences to scalar are not serialized,
+and BigEndian machines are not supported, 
+and can't/ may not serialize tied variables.
 
 =head1 SEE ALSO
 
-L<Data::AMF>, L<Storable>
+L<Data::AMF>, L<Storable>, L<Storable::AMF3>
 
 =head1 AUTHOR
 
@@ -172,6 +207,4 @@ Copyright (C) 2008 by A. G. Grishaev
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.8 or,
 at your option, any later version of Perl 5 you may have available.
-
-
 =cut

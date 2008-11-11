@@ -4,19 +4,15 @@ use 5.008008;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.12';
+our $VERSION = '0.14';
 
 require Exporter;
 our @ISA = qw(Exporter);
-use Storable::AMF;
 
 # Items to export into callers namespace by default. Note: do not export
 # names by default without a very good reason. Use EXPORT_OK instead.
 # Do not simply export all your public functions/methods/constants.
 
-# This allows declaration	use Data::AMF::XS ':all';
-# If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
-# will save memory.
 our %EXPORT_TAGS = ( 'all' => [ qw(
 	freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store
 ) ] );
@@ -25,73 +21,72 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
+sub retrieve{
+	my $file = shift;
+	open my $fh, "<", $file or die "Can't open file \"$file\" for read.";
+	my $buf;
+	read $fh, $buf, -s $fh;
+	close($fh);
+	return thaw($buf);
+}
 
-#~ sub retrieve{
-#~ 	my $file = shift;
-#~ 	open my $fh, "<", $file or die "Can't open file \"$file\" for read.";
-#~ 	my $buf;
-#~ 	read $fh, $buf, -s $fh;
-#~ 	close($fh);
-#~ 	return thaw($buf);
-#~ }
-#~ 
-#~ sub lock_retrieve{
-#~ 	my $file = shift;
-#~ 	open my $fh, "<", $file or die "Can't open file \"$file\" for read.";
-#~ 	flock $fh, LOCK_SH;
-#~ 	my $buf;
-#~ 	read $fh, $buf, -s $fh;
-#~ 	flock $fh, LOCK_UN;
-#~ 	close($fh);
-#~ 	return thaw($buf);
-#~ }
-#~ sub store{
-#~ 	my $object = shift;
-#~ 	my $file   = shift;
-#~ 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
-#~ 	truncate $fh, 0;
-#~ 	print $fh freeze($object);
-#~ 	close($fh);
-#~ }
-#~ 
-#~ sub lock_store{
-#~ 	my $object = shift;
-#~ 	my $file   = shift;
-#~ 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
-#~ 	flock $fh, LOCK_EX;
-#~ 	truncate $fh, 0;
-#~ 	print $fh freeze($object);
-#~ 	flock $fh, LOCK_UN;
-#~ 	close($fh);
-#~ }
-#~ 
-#~ sub nstore{
-#~ 	my $object = shift;
-#~ 	my $file   = shift;
-#~ 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
-#~ 	truncate $fh, 0;
-#~ 	print $fh freeze($object);
-#~ 	close($fh);
-#~ }
-#~ 
-#~ sub lock_nstore{
-#~ 	my $object = shift;
-#~ 	my $file   = shift;
-#~ 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
-#~ 	flock $fh, LOCK_EX;
-#~ 	truncate $fh, 0;
-#~ 	print $fh freeze($object);
-#~ 	flock $fh, LOCK_UN;
-#~ 	close($fh);
-#~ }
+sub lock_retrieve{
+	my $file = shift;
+	open my $fh, "<", $file or die "Can't open file \"$file\" for read.";
+	flock $fh, LOCK_SH;
+	my $buf;
+	read $fh, $buf, -s $fh;
+	flock $fh, LOCK_UN;
+	close($fh);
+	return thaw($buf);
+}
+sub store{
+	my $object = shift;
+	my $file   = shift;
+	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
+	truncate $fh, 0;
+	print $fh freeze($object);
+	close($fh);
+}
+
+sub lock_store{
+	my $object = shift;
+	my $file   = shift;
+	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
+	flock $fh, LOCK_EX;
+	truncate $fh, 0;
+	print $fh freeze($object);
+	flock $fh, LOCK_UN;
+	close($fh);
+}
+
+sub nstore{
+	my $object = shift;
+	my $file   = shift;
+	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
+	truncate $fh, 0;
+	print $fh freeze($object);
+	close($fh);
+}
+
+sub lock_nstore{
+	my $object = shift;
+	my $file   = shift;
+	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
+	flock $fh, LOCK_EX;
+	truncate $fh, 0;
+	print $fh freeze($object);
+	flock $fh, LOCK_UN;
+	close($fh);
+}
 #~ sub dclone{
-#~ 	my $object = shift;
-#~ 	return thaw(treeze $_[0]);
+#~  	my $object = shift;
+#~  	return thaw(freeze($object));
 #~ }
 require XSLoader;
 XSLoader::load('Storable::AMF', $VERSION);
-no strict 'refs';
-*{"Storable::AMF0::$_"} = *{"Storable::AMF::$_"} for @{$EXPORT_TAGS{'all'}};
+#no strict 'refs';
+#*{"Storable::AMF0::$_"} = *{"Storable::AMF::$_"} for @{$EXPORT_TAGS{'all'}};
 
 
 # Preloaded methods go here.
