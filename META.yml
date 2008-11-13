@@ -1,19 +1,14 @@
 --- #YAML:1.0
 name:                Storable-AMF
-version:             0.14
+version:             0.15
 abstract:            Perl extension for serialize/deserialize AMF0/AMF3 data
 license:             ~
 author:              
-    - Grishaev Anatoliy  <gtoly@combats.ru>
+    - Grishaev Anatoliy  <grian@cpan.org>
 generated_by:        ExtUtils::MakeMaker version 6.42
 distribution_type:   module
 requires:     
-    Carp:                          0
-    Data::Dumper:                  0
-    ExtUtils::testlib:             0
-    Fcntl:                         0
-    File::Spec:                    0
-    Test::More:                    0
+    perl:                          5.006002
 meta-spec:
     url:     http://module-build.sourceforge.net/META-spec-v1.3.html
     version: 1.3

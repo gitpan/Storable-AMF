@@ -41,7 +41,6 @@ sub MyDump{
 }
 my $obj = Test::Bless->new();
 my $bank = serialize($obj);
-use Data::Dumper;
 #print STDERR Data::Dumper->Dump([$bank]), MyDump($bank), "\n";
 #print STDERR MyDump(serialize({foo=>'bar'})), "\n";
 my $newobj = Storable::AMF::thaw($bank);

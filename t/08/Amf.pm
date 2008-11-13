@@ -1,7 +1,6 @@
 use Storable::AMF qw(thaw freeze); 
 use IO::Handle;
 use IO::Socket::INET;
-use Data::Dumper;
 use Time::HiRes qw(sleep);
 use Test::More no_plan=>1;
 my  $socket= new IO::Socket::INET (

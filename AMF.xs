@@ -10,6 +10,13 @@
 #define ERR_OVERFLOW 5
 #define ERR_UNIMPLEMENTED 6
 #define ERR_BADREF 7
+#define ERR_BAD_DATE_REF 8
+#define ERR_BAD_OBJECT_REF 9
+#define ERR_BAD_ARRAY_REF 10
+#define ERR_BAD_STRING_REF 11
+#define ERR_BAD_TRAIT_REF 12
+#define ERR_BAD_XML_REF 13
+#define ERR_BAD_BYTEARRAY_REF 14
 
 #define AMF0 0
 #define AMF3 3
@@ -28,6 +35,13 @@
 #define TRACE(ELEM) fprintf( stderr, "%s\n", (ELEM));
 #undef TRACE
 #define TRACE(ELEM) ;
+
+#if LITTLE_ENDIAN 
+#define GET_NBYTE(ALL, IPOS) (ALL -1 -IPOS)
+#elif BIG_ENDIAN
+#define GET_NBYTE(ALL, IPOS) (IPOS)
+#else
+#endif
 
 struct amf3_restore_point{
 	int offset_buffer;
@@ -250,24 +264,23 @@ int read_u24(struct io_struct * io);
 
 		
 inline void write_double(struct io_struct *io, double value){
-	const int step = 8;
+	const int step = sizeof(double);
 	union {
 		signed   int iv;
 		unsigned int uv;
 		double nv;
-		char   c[8];
+		char   c[step];
 	} v;
 	io_reserve(io, step );
-	//fprintf( stderr, "double = %f\n", value);
 	v.nv = value;
-	io->pos[0] = v.c[step - 1 - 0];
-	io->pos[1] = v.c[step - 1 - 1];
-	io->pos[2] = v.c[step - 1 - 2];
-	io->pos[3] = v.c[step - 1 - 3];
-	io->pos[4] = v.c[step - 1 - 4];
-	io->pos[5] = v.c[step - 1 - 5];
-	io->pos[6] = v.c[step - 1 - 6];
-	io->pos[7] = v.c[step - 1 - 7];
+	io->pos[0] = v.c[GET_NBYTE(step, 0)];
+	io->pos[1] = v.c[GET_NBYTE(step, 1)];
+	io->pos[2] = v.c[GET_NBYTE(step, 2)];
+	io->pos[3] = v.c[GET_NBYTE(step, 3)];
+	io->pos[4] = v.c[GET_NBYTE(step, 4)];
+	io->pos[5] = v.c[GET_NBYTE(step, 5)];
+	io->pos[6] = v.c[GET_NBYTE(step, 6)];
+	io->pos[7] = v.c[GET_NBYTE(step, 7)];
 	io->pos+= step ;
 	return;
 }
@@ -313,8 +326,8 @@ inline void write_s16(struct io_struct * io, signed int value){
 	v.iv = value;
 	MOVERFLOW(value, 32767, "write_s16");
 	io_reserve(io, step);
-	io->pos[0]= v.c[step - 1 - 0];
-	io->pos[1]= v.c[step - 1 - 1];
+	io->pos[0]= v.c[GET_NBYTE(step, 0)];
+	io->pos[1]= v.c[GET_NBYTE(step, 1)];
 	io->pos+=step;
 	return;
 }
@@ -330,8 +343,8 @@ inline void write_u16(struct io_struct * io, unsigned int value){
 	io_reserve(io,step);
 	MOVERFLOW(value,65535 , "write_u16");
 	v.uv = value;
-	io->pos[0] = v.c[step - 1 - 0];
-	io->pos[1] = v.c[step - 1 - 1];
+	io->pos[0] = v.c[GET_NBYTE(step, 0)];
+	io->pos[1] = v.c[GET_NBYTE(step, 1)];
 	io->pos+=step;
 	return;
 }
@@ -346,10 +359,10 @@ inline void write_u32(struct io_struct * io, unsigned int value){
 	} v;
 	io_reserve(io,step);
 	v.uv = value;
-	io->pos[0] = v.c[step - 1 - 0];
-	io->pos[1] = v.c[step - 1 - 1];
-	io->pos[2] = v.c[step - 1 - 2];
-	io->pos[3] = v.c[step - 1 - 3];
+	io->pos[0] = v.c[GET_NBYTE(step, 0)];
+	io->pos[1] = v.c[GET_NBYTE(step, 1)];
+	io->pos[2] = v.c[GET_NBYTE(step, 2)];
+	io->pos[3] = v.c[GET_NBYTE(step, 3)];
 	io->pos+=step;
 	return;
 }
@@ -365,9 +378,9 @@ inline void write_u24(struct io_struct * io, unsigned int value){
 	io_reserve(io,step);
 	MOVERFLOW(value,16777215 , "write_u16");
 	v.uv = value;
-	io->pos[0] = v.c[step - 1 - 0];
-	io->pos[1] = v.c[step - 1 - 1];
-	io->pos[2] = v.c[step - 1 - 2];
+	io->pos[0] = v.c[GET_NBYTE(step, 0)];
+	io->pos[1] = v.c[GET_NBYTE(step, 1)];
+	io->pos[2] = v.c[GET_NBYTE(step, 2)];
 	io->pos+=step;
 	return;
 }
@@ -537,19 +550,24 @@ void write_u32(struct io_struct * io, unsigned int value);
 void write_u24(struct io_struct * io, unsigned int value);
 
 inline double read_double(struct io_struct *io){
-	const int step = 8;
+	const int step = sizeof(double);
 	double a;
 	int i;
 	char * ptr_in  = io->pos;
 	char * ptr_out = (char *) &a; 
 	io_require(io, step);
-	for(i=0; i<step; ++i){
-		ptr_out[i] = ptr_in[step - 1 - i] ;
-	};
+	ptr_out[0] = ptr_in[GET_NBYTE(step, 0)] ;
+	ptr_out[1] = ptr_in[GET_NBYTE(step, 1)] ;
+	ptr_out[2] = ptr_in[GET_NBYTE(step, 2)] ;
+	ptr_out[3] = ptr_in[GET_NBYTE(step, 3)] ;
+	ptr_out[4] = ptr_in[GET_NBYTE(step, 4)] ;
+	ptr_out[5] = ptr_in[GET_NBYTE(step, 5)] ;
+	ptr_out[6] = ptr_in[GET_NBYTE(step, 6)] ;
+	ptr_out[7] = ptr_in[GET_NBYTE(step, 7)] ;
 	io->pos += step;
 	return a;
 }
-inline char *read_bytes(struct io_struct *io, int len){
+inline char *io_read_bytes(struct io_struct *io, int len){
 	char * pos = io->pos;
 	io_require(io, len);
 	io->pos+=len;
@@ -590,8 +608,8 @@ inline int read_s16(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[step - 1 - 0];
-	str.bytes[1] = io->pos[step - 1 - 1];
+	str.bytes[0] = io->pos[GET_NBYTE(step, 0)];
+	str.bytes[1] = io->pos[GET_NBYTE(step, 1)];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -603,9 +621,8 @@ inline int read_u16(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[step - 1 -0];
-
-	str.bytes[1] = io->pos[step - 1 -1];
+	str.bytes[0] = io->pos[GET_NBYTE(step, 0)];
+	str.bytes[1] = io->pos[GET_NBYTE(step, 1)];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -617,9 +634,9 @@ inline int read_u24(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[step - 1 - 0];
-	str.bytes[1] = io->pos[step - 1 - 1];
-	str.bytes[2] = io->pos[step - 1 - 2];
+	str.bytes[0] = io->pos[GET_NBYTE(step, 0)];
+	str.bytes[1] = io->pos[GET_NBYTE(step, 1)];
+	str.bytes[2] = io->pos[GET_NBYTE(step, 2)];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -631,10 +648,10 @@ inline int read_u32(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[step - 1 - 0];
-	str.bytes[1] = io->pos[step - 1 - 1];
-	str.bytes[2] = io->pos[step - 1 - 2];
-	str.bytes[3] = io->pos[step - 1 - 3];
+	str.bytes[0] = io->pos[GET_NBYTE(step, 0)];
+	str.bytes[1] = io->pos[GET_NBYTE(step, 1)];
+	str.bytes[2] = io->pos[GET_NBYTE(step, 2)];
+	str.bytes[3] = io->pos[GET_NBYTE(step, 3)];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -1017,16 +1034,35 @@ SV * amf3_parse_string (struct io_struct *io){
 	//SvUTF8_on(RETVALUE);
 	return RETVALUE;
 }
+SV * amf3_parse_xml(struct io_struct *io);
 SV * amf3_parse_xml_doc (struct io_struct *io){
 	SV * RETVALUE;
-	io_register_error(io, ERR_UNIMPLEMENTED);
+//	io_register_error(io, ERR_UNIMPLEMENTED);
+	RETVALUE = amf3_parse_xml(io);
 	return RETVALUE;
 }
 SV * amf3_parse_date (struct io_struct *io){
 	SV * RETVALUE;
-	io_register_error(io, ERR_UNIMPLEMENTED);
+	int i = amf3_read_integer(io);
+	if (i&1){
+		double x = read_double(io);
+		RETVALUE = newSVnv(x);
+		SvREFCNT_inc(RETVALUE);
+		av_push(io->arr_object, RETVALUE);
+	}
+	else {
+		SV ** item = av_fetch(io->arr_object, i>>1, 0);
+		if (item) {
+			RETVALUE = *item;
+			SvREFCNT_inc(RETVALUE);
+		}
+		else{
+			io_register_error(io, ERR_BAD_DATE_REF);
+		}
+	}
 	return RETVALUE;
 }
+
 
 inline amf3_store_object(struct io_struct *io, SV * item){
 	//fprintf( stderr, "store ref %p %d %p\n", io->arr_object, io->rc_object, item);
@@ -1116,7 +1152,7 @@ SV * amf3_parse_array (struct io_struct *io){
 			RETVALUE = newRV(SvRV(*value));
 		}
 		else {
-			RETVALUE = newSV(0);
+			io_register_error(io, ERR_BAD_ARRAY_REF);
 		}
 	}
 	return RETVALUE;
@@ -1145,7 +1181,7 @@ SV * amf3_parse_object (struct io_struct *io){
 		if (!(obj_ref & 2)){// not trait ref
 			SV** trait_item	= av_fetch(io->arr_trait, obj_ref>>2, 0);
 			if (! trait_item) {
-				io_register_error(io, ERR_BADREF);
+				io_register_error(io, ERR_BAD_TRAIT_REF);
 			};
 			trait = (AV *) SvRV(*trait_item);
 
@@ -1216,7 +1252,7 @@ SV * amf3_parse_object (struct io_struct *io){
 		}
 		else {
 			//fprintf (stderr, "Bad object ref(array)\n");
-			io_register_error(io, ERR_BADREF);
+			io_register_error(io, ERR_BAD_TRAIT_REF);
 			RETVALUE = &PL_sv_undef;	
 		}
 	}
@@ -1224,12 +1260,45 @@ SV * amf3_parse_object (struct io_struct *io){
 }
 SV * amf3_parse_xml (struct io_struct *io){
 	SV * RETVALUE;
-	io_register_error(io, ERR_UNIMPLEMENTED);
+	int Bi = amf3_read_integer(io);
+	if (Bi & 1) { // value
+		int len = Bi>>1;
+		char *b = io_read_bytes(io, len);
+		RETVALUE = newSVpvn(b, len);
+		SvREFCNT_inc(RETVALUE);
+		av_push(io->arr_object, RETVALUE);
+	}
+	else {
+		SV ** sv = av_fetch(io->arr_object, Bi>>1, 0);
+		if (sv) {
+			RETVALUE = newSVsv(*sv);
+		}		
+		else {
+			io_register_error(io, ERR_BAD_XML_REF);
+		}
+	}
 	return RETVALUE;
 }
 SV * amf3_parse_bytearray (struct io_struct *io){
 	SV * RETVALUE;
-	io_register_error(io, ERR_UNIMPLEMENTED);
+	RETVALUE = amf3_parse_xml(io);
+	int Bi = amf3_read_integer(io);
+	if (Bi & 1) { // value
+		int len = Bi>>1;
+		char *b = io_read_bytes(io, len);
+		RETVALUE = newSVpvn(b, len);
+		SvREFCNT_inc(RETVALUE);
+		av_push(io->arr_object, RETVALUE);
+	}
+	else {
+		SV ** sv = av_fetch(io->arr_object, Bi>>1, 0);
+		if (sv) {
+			RETVALUE = newSVsv(*sv);
+		}		
+		else {
+			io_register_error(io, ERR_BAD_BYTEARRAY_REF);
+		}
+	}
 	return RETVALUE;
 }
 inline void amf3_format_one(struct io_struct *io, SV * one);
@@ -1708,4 +1777,4 @@ void freeze(data)
 		retvalue = sv_2mortal(io_buffer(&io_record));
 		XPUSHs(retvalue);
 
-MODULE = Storable::AMF	PACKAGE = Storable::AMF
+MODULE = Storable::AMF

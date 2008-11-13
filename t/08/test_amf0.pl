@@ -2,7 +2,6 @@ use lib "t";
 use strict;
 use warnings;
 use Storable::AMF qw(freeze thaw retrieve);
-use Data::Dumper;
 use GrianUtils;
 
 my @item = grep { $_!~m/\./ } GrianUtils->my_readdir('AMF');

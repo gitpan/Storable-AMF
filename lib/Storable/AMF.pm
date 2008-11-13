@@ -1,10 +1,10 @@
 package Storable::AMF;
-use 5.008008;
+#use 5.008008;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
 use Storable::AMF0;
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -125,6 +125,15 @@ And some cases faster then Storable( for me always)
 At current moment and with restriction of AMF0/AMF3 format referrences to scalar are not serialized,
 and BigEndian machines are not supported, 
 and can't/ may not serialize tied variables.
+
+=head1 TODO
+
+Parse date and XML documents in AMF3 format.
+Add some options to functions.
+Add some tests for date/ xml/ xml-doc.
+Implents destroy object -- to destroy self-refernses objects.
+Implents objects_leaks -- to test if object referenses self.
+Add more complex tests.
 
 =head1 SEE ALSO
 

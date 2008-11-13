@@ -40,7 +40,6 @@ sub MyDump{
 	join "", map { ord >31 ? $_ : "\\x". unpack "H*", $_ }  split "", $_[0];
 }
 my $obj = Test::Bless->new();
-use Data::Dumper;
 sub copy_test{
 	my $val = shift;
 	my $copy = Storable::AMF::dclone($val);

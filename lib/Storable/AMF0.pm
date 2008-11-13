@@ -1,10 +1,9 @@
 package Storable::AMF0;
-
-use 5.008008;
+#use 5.008008;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -97,7 +96,7 @@ __END__
 
 =head1 NAME
 
-Storable::AMF0 - Perl extension for serialize/deserialize AMF0 date
+Storable::AMF0 - Perl extension for serialize/deserialize AMF0 data
 
 =head1 SYNOPSIS
 

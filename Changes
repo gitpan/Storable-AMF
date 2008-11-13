@@ -45,3 +45,11 @@ Revision history for Perl extension Storable::AMF.
 	- improved doc and tests
 	- remove UTF8 support
 
+0.1500 (  593) 2008-11-12 15:13:44 +0300 
+	- fixed typos (date->data)
+	- add support of bigendian machines
+
+0.1500 (  599) 2008-11-13 13:28:37 +0300 
+	- implements parse bytearray, xml-doc, xml, date. Added more descriptive error codes
+	- Added TODO section 
+

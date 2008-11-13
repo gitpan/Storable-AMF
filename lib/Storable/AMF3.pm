@@ -1,10 +1,9 @@
 package Storable::AMF3;
-
-use 5.008008;
+#use 5.008008;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 
 require Exporter;
 
@@ -99,7 +98,7 @@ __END__
 
 =head1 NAME
 
-Storable::AMF3 - Perl extension for serialize/deserialize AMF3 date
+Storable::AMF3 - Perl extension for serialize/deserialize AMF3 data
 
 =head1 SYNOPSIS
 
