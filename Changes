@@ -53,3 +53,9 @@ Revision history for Perl extension Storable::AMF.
 	- implements parse bytearray, xml-doc, xml, date. Added more descriptive error codes
 	- Added TODO section 
 
+0.1502 (  603) 2008-11-13 13:28:37 +0300 
+	- Remove Strange bug for BigEndian machine 
+	- Fixed int (I32) declaration for hv_iternextsv
+	- Upgrade ExtUtils::MakeMaker to 6.48
+	- remove warnings: empty declaration
+

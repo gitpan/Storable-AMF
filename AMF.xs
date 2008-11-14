@@ -36,11 +36,12 @@
 #undef TRACE
 #define TRACE(ELEM) ;
 
-#if LITTLE_ENDIAN 
-#define GET_NBYTE(ALL, IPOS) (ALL -1 -IPOS)
-#elif BIG_ENDIAN
+#ifdef LITTLE_END 
+#define GET_NBYTE(ALL, IPOS) (ALL - 1 - IPOS)
+#else 
+#ifdef BIG_END
 #define GET_NBYTE(ALL, IPOS) (IPOS)
-#else
+#endif
 #endif
 
 struct amf3_restore_point{
@@ -132,7 +133,7 @@ inline void io_reserve(struct io_struct *io, int len){
 		io->end = io->ptr + SvLEN(io->sv_buffer);
 	}
 }
-inline io_register_error(struct io_struct *io, int errtype){
+inline void io_register_error(struct io_struct *io, int errtype){
 	longjmp(io->target_error, errtype);
 }
 
@@ -488,7 +489,7 @@ inline void format_strict_array(struct io_struct *io, AV * one){
 	}
 }
 inline void format_object(struct io_struct *io, HV * one){
-	int key_len;
+	I32 key_len;
 	HV *hv;
 	HE *he;
 	SV * value;
@@ -696,16 +697,16 @@ inline void amf3_write_integer(struct io_struct *io, IV ivalue){
 		char buf[50];
 		io->pos[-1] = MARKER3_DOUBLE;
 		write_double(io, ivalue);
-		return;
-		sprintf(buf, "AMF3 format int: too big number(%d)", value);
-		warn(buf);
-		io_register_error(io, ERR_OVERFLOW);
+		return; //  TODO: Rewrite needed
+//#~ 		sprintf(buf, "AMF3 format int: too big number(%d)", value);
+//#~ 		warn(buf);
+//#~ 		io_register_error(io, ERR_OVERFLOW);
 	}
 	return;
 }
 
 inline int amf3_read_integer(struct io_struct *io){
-	int value;
+	I32 value;
 	io_require(io, 1);
 	if ((U8) io->pos[0] > 0x7f) {
 		io_require(io, 2);
@@ -932,12 +933,12 @@ inline SV* parse_recordset(struct io_struct *io){
 	io->message = "Not implemented: parse_recordset";
 	RETVALUE = newSV(0);
 	return RETVALUE;
-};
+}
 inline SV* parse_xml_document(struct io_struct *io){
 	SV* RETVALUE;
 	RETVALUE = parse_long_string(io);
 	return RETVALUE;
-};
+}
 inline SV* parse_typed_object(struct io_struct *io){
 	SV* RETVALUE;
 	HV *stash;
@@ -949,16 +950,16 @@ inline SV* parse_typed_object(struct io_struct *io){
 	RETVALUE = parse_object(io);
 	sv_bless(RETVALUE, stash);
 	return RETVALUE;
-};
+}
 inline SV* parse_double(struct io_struct * io){
 	return newSVnv(read_double(io));
-};
+}
 
 inline SV* parse_boolean(struct io_struct * io){
 	char marker;
 	marker = read_marker(io);
 	return newSViv(marker == '\000' ? 0 :1);
-};
+}
 
 inline SV * amf3_parse_one(struct io_struct *io);
 SV * amf3_parse_undefined (struct io_struct *io){
@@ -1064,7 +1065,7 @@ SV * amf3_parse_date (struct io_struct *io){
 }
 
 
-inline amf3_store_object(struct io_struct *io, SV * item){
+inline void amf3_store_object(struct io_struct *io, SV * item){
 	//fprintf( stderr, "store ref %p %d %p\n", io->arr_object, io->rc_object, item);
 	av_push(io->arr_object, newRV(item));
 	io->rc_object++;
@@ -1076,15 +1077,15 @@ SV * amf3_parse_array (struct io_struct *io){
 	if (ref_len & 1){
 		// Not referense
 		int len = ref_len>>1;
-		TRACE("Parse first array");
 		int str_len;
 		SV * item;
 		char * pstr;
 		bool recover;
-		STRLEN plen;
-		
+		STRLEN plen;		
 		struct amf3_restore_point rec_point; 
 		int old_vlen;
+
+		TRACE("Parse first array");
 		AV * array;
 		str_len = amf3_read_integer(io);
 		if (str_len !=1) {
@@ -1120,14 +1121,15 @@ SV * amf3_parse_array (struct io_struct *io){
 			};
 		}
 		else {
-			io_restorepoint(io, &rec_point);	
-			str_len = old_vlen;
 			HV * hv = newHV();
 			SV * sv;
 			char *pstr;
 			STRLEN plen;
 			char buf[2+2*sizeof(int)];
 			int i;
+
+			io_restorepoint(io, &rec_point);	
+			str_len = old_vlen;
 			item = (SV *) hv;
 			amf3_store_object(io, item);
 			while(str_len != 1){
@@ -1245,8 +1247,8 @@ SV * amf3_parse_object (struct io_struct *io){
 		}
 	}
 	else {
-		TRACE("Parse refs");
 		SV ** ref = av_fetch(io->arr_object, obj_ref>>1, 0);
+		TRACE("Parse refs");
 		if (ref) {
 			RETVALUE = newRV(SvRV(*ref));
 		}
@@ -1281,7 +1283,6 @@ SV * amf3_parse_xml (struct io_struct *io){
 }
 SV * amf3_parse_bytearray (struct io_struct *io){
 	SV * RETVALUE;
-	RETVALUE = amf3_parse_xml(io);
 	int Bi = amf3_read_integer(io);
 	if (Bi & 1) { // value
 		int len = Bi>>1;
@@ -1306,13 +1307,13 @@ inline void amf3_format_integer(struct io_struct *io, SV *one){
 	
 	write_marker(io, '\x04');
 	amf3_write_integer(io, SvIV(one));
-};
+}
 
 inline void amf3_format_double(struct io_struct * io, SV *one){
 	
 	write_marker(io, '\x05');
 	write_double(io, SvNV(one));
-};
+}
 
 inline void amf3_format_undef(struct io_struct *io){
 	write_marker( io, '\x00');
@@ -1433,7 +1434,7 @@ inline void amf3_format_object(struct io_struct *io, HV * one){
 		HE *he;
 		SV * value;
 		char * key_str;
-		int key_len;
+		I32 key_len;
 
 		hv = one;
 
@@ -1587,7 +1588,7 @@ HV * deep_hash(HV* value){
 	HV * copy =  (HV*) newHV();
 	SV * key_value;
 	char * key_str;
-	int key_len;
+	I32 key_len;
 	SV*	copy_val;
 
 	hv_iterinit(value);

@@ -3,7 +3,8 @@ package Storable::AMF0;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.15';
+our $VERSION = '0.1502';
+use subs qw(freeze thaw);
 
 require Exporter;
 our @ISA = qw(Exporter);

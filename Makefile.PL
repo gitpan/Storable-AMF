@@ -4,13 +4,21 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
 
-my $DEFINE = "-D${ENDIAN}_ENDIAN";
+my $DEFINE = "-D${ENDIAN}_END";
+our %REQUIRE = ( 
+	PREREQ_PM => {}, # e.g., Module::Name => 1.1
+	MIN_PERL_VERSION => 5.0080000,
+	);
+if ($ExtUtils::MakeMaker::VERSION < 6.048) {
+	my $version = delete $REQUIRE{MIN_PERL_VERSION};
+	#$REQUIRE{PREREQ_PM}{perl}= $version;
+};
+
+print "This is ${ENDIAN}_ENDIAN machine\n";
+
 WriteMakefile(
     NAME              => 'Storable::AMF',
     VERSION_FROM      => 'lib/Storable/AMF.pm', # finds $VERSION
-    PREREQ_PM         => {
-		'perl' => 5.006002,
-	}, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Storable/AMF.pm', # retrieve abstract from module
        AUTHOR         => 'Grishaev Anatoliy  <grian@cpan.org>') : ()),
@@ -20,5 +28,6 @@ WriteMakefile(
 	# Un-comment this if you add C files to link with later:
     # OBJECT            => '$(O_FILES)', # link all the C files too
 	OPTIMIZE => "-O3 -pipe -fomit-frame-pointer ",
+	%REQUIRE, 
 );
 # -march=opteron -O3 -pipe -fomit-frame-pointer 
