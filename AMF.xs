@@ -37,10 +37,10 @@
 #define TRACE(ELEM) ;
 
 #ifdef LITTLE_END 
-#define GET_NBYTE(ALL, IPOS) (ALL - 1 - IPOS)
+#define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
 #else 
 #ifdef BIG_END
-#define GET_NBYTE(ALL, IPOS) (IPOS)
+#define GET_NBYTE(ALL, IPOS, TYPE) (sizeof(TYPE) -ALL + IPOS)
 #endif
 #endif
 
@@ -274,14 +274,14 @@ inline void write_double(struct io_struct *io, double value){
 	} v;
 	io_reserve(io, step );
 	v.nv = value;
-	io->pos[0] = v.c[GET_NBYTE(step, 0)];
-	io->pos[1] = v.c[GET_NBYTE(step, 1)];
-	io->pos[2] = v.c[GET_NBYTE(step, 2)];
-	io->pos[3] = v.c[GET_NBYTE(step, 3)];
-	io->pos[4] = v.c[GET_NBYTE(step, 4)];
-	io->pos[5] = v.c[GET_NBYTE(step, 5)];
-	io->pos[6] = v.c[GET_NBYTE(step, 6)];
-	io->pos[7] = v.c[GET_NBYTE(step, 7)];
+	io->pos[0] = v.c[GET_NBYTE(step, 0, value)];
+	io->pos[1] = v.c[GET_NBYTE(step, 1, value)];
+	io->pos[2] = v.c[GET_NBYTE(step, 2, value)];
+	io->pos[3] = v.c[GET_NBYTE(step, 3, value)];
+	io->pos[4] = v.c[GET_NBYTE(step, 4, value)];
+	io->pos[5] = v.c[GET_NBYTE(step, 5, value)];
+	io->pos[6] = v.c[GET_NBYTE(step, 6, value)];
+	io->pos[7] = v.c[GET_NBYTE(step, 7, value)];
 	io->pos+= step ;
 	return;
 }
@@ -327,8 +327,8 @@ inline void write_s16(struct io_struct * io, signed int value){
 	v.iv = value;
 	MOVERFLOW(value, 32767, "write_s16");
 	io_reserve(io, step);
-	io->pos[0]= v.c[GET_NBYTE(step, 0)];
-	io->pos[1]= v.c[GET_NBYTE(step, 1)];
+	io->pos[0]= v.c[GET_NBYTE(step, 0, value)];
+	io->pos[1]= v.c[GET_NBYTE(step, 1, value)];
 	io->pos+=step;
 	return;
 }
@@ -344,8 +344,8 @@ inline void write_u16(struct io_struct * io, unsigned int value){
 	io_reserve(io,step);
 	MOVERFLOW(value,65535 , "write_u16");
 	v.uv = value;
-	io->pos[0] = v.c[GET_NBYTE(step, 0)];
-	io->pos[1] = v.c[GET_NBYTE(step, 1)];
+	io->pos[0] = v.c[GET_NBYTE(step, 0, value)];
+	io->pos[1] = v.c[GET_NBYTE(step, 1, value)];
 	io->pos+=step;
 	return;
 }
@@ -360,10 +360,10 @@ inline void write_u32(struct io_struct * io, unsigned int value){
 	} v;
 	io_reserve(io,step);
 	v.uv = value;
-	io->pos[0] = v.c[GET_NBYTE(step, 0)];
-	io->pos[1] = v.c[GET_NBYTE(step, 1)];
-	io->pos[2] = v.c[GET_NBYTE(step, 2)];
-	io->pos[3] = v.c[GET_NBYTE(step, 3)];
+	io->pos[0] = v.c[GET_NBYTE(step, 0, value)];
+	io->pos[1] = v.c[GET_NBYTE(step, 1, value)];
+	io->pos[2] = v.c[GET_NBYTE(step, 2, value)];
+	io->pos[3] = v.c[GET_NBYTE(step, 3, value)];
 	io->pos+=step;
 	return;
 }
@@ -379,9 +379,9 @@ inline void write_u24(struct io_struct * io, unsigned int value){
 	io_reserve(io,step);
 	MOVERFLOW(value,16777215 , "write_u16");
 	v.uv = value;
-	io->pos[0] = v.c[GET_NBYTE(step, 0)];
-	io->pos[1] = v.c[GET_NBYTE(step, 1)];
-	io->pos[2] = v.c[GET_NBYTE(step, 2)];
+	io->pos[0] = v.c[GET_NBYTE(step, 0, value)];
+	io->pos[1] = v.c[GET_NBYTE(step, 1, value)];
+	io->pos[2] = v.c[GET_NBYTE(step, 2, value)];
 	io->pos+=step;
 	return;
 }
@@ -557,14 +557,14 @@ inline double read_double(struct io_struct *io){
 	char * ptr_in  = io->pos;
 	char * ptr_out = (char *) &a; 
 	io_require(io, step);
-	ptr_out[0] = ptr_in[GET_NBYTE(step, 0)] ;
-	ptr_out[1] = ptr_in[GET_NBYTE(step, 1)] ;
-	ptr_out[2] = ptr_in[GET_NBYTE(step, 2)] ;
-	ptr_out[3] = ptr_in[GET_NBYTE(step, 3)] ;
-	ptr_out[4] = ptr_in[GET_NBYTE(step, 4)] ;
-	ptr_out[5] = ptr_in[GET_NBYTE(step, 5)] ;
-	ptr_out[6] = ptr_in[GET_NBYTE(step, 6)] ;
-	ptr_out[7] = ptr_in[GET_NBYTE(step, 7)] ;
+	ptr_out[0] = ptr_in[GET_NBYTE(step, 0, a)] ;
+	ptr_out[1] = ptr_in[GET_NBYTE(step, 1, a)] ;
+	ptr_out[2] = ptr_in[GET_NBYTE(step, 2, a)] ;
+	ptr_out[3] = ptr_in[GET_NBYTE(step, 3, a)] ;
+	ptr_out[4] = ptr_in[GET_NBYTE(step, 4, a)] ;
+	ptr_out[5] = ptr_in[GET_NBYTE(step, 5, a)] ;
+	ptr_out[6] = ptr_in[GET_NBYTE(step, 6, a)] ;
+	ptr_out[7] = ptr_in[GET_NBYTE(step, 7, a)] ;
 	io->pos += step;
 	return a;
 }
@@ -609,8 +609,8 @@ inline int read_s16(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[GET_NBYTE(step, 0)];
-	str.bytes[1] = io->pos[GET_NBYTE(step, 1)];
+	str.bytes[0] = io->pos[GET_NBYTE(step, 0, str.x)];
+	str.bytes[1] = io->pos[GET_NBYTE(step, 1, str.x)];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -622,8 +622,8 @@ inline int read_u16(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[GET_NBYTE(step, 0)];
-	str.bytes[1] = io->pos[GET_NBYTE(step, 1)];
+	str.bytes[0] = io->pos[GET_NBYTE(step, 0, str.x)];
+	str.bytes[1] = io->pos[GET_NBYTE(step, 1, str.x)];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -635,9 +635,9 @@ inline int read_u24(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[GET_NBYTE(step, 0)];
-	str.bytes[1] = io->pos[GET_NBYTE(step, 1)];
-	str.bytes[2] = io->pos[GET_NBYTE(step, 2)];
+	str.bytes[0] = io->pos[GET_NBYTE(step, 0, str.x)];
+	str.bytes[1] = io->pos[GET_NBYTE(step, 1, str.x)];
+	str.bytes[2] = io->pos[GET_NBYTE(step, 2, str.x)];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -649,10 +649,10 @@ inline int read_u32(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[GET_NBYTE(step, 0)];
-	str.bytes[1] = io->pos[GET_NBYTE(step, 1)];
-	str.bytes[2] = io->pos[GET_NBYTE(step, 2)];
-	str.bytes[3] = io->pos[GET_NBYTE(step, 3)];
+	str.bytes[0] = io->pos[GET_NBYTE(step, 0, str.x)];
+	str.bytes[1] = io->pos[GET_NBYTE(step, 1, str.x)];
+	str.bytes[2] = io->pos[GET_NBYTE(step, 2, str.x)];
+	str.bytes[3] = io->pos[GET_NBYTE(step, 3, str.x)];
 	io->pos+= step;
 	return (int) str.x;
 }

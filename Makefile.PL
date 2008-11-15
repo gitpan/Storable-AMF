@@ -1,4 +1,4 @@
-use 5.006002;
+use 5.008000;
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -7,12 +7,13 @@ my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
 my $DEFINE = "-D${ENDIAN}_END";
 our %REQUIRE = ( 
 	PREREQ_PM => {}, # e.g., Module::Name => 1.1
-	MIN_PERL_VERSION => 5.0080000,
+	MIN_PERL_VERSION => 5.008000,
 	);
-if ($ExtUtils::MakeMaker::VERSION < 6.048) {
-	my $version = delete $REQUIRE{MIN_PERL_VERSION};
-	#$REQUIRE{PREREQ_PM}{perl}= $version;
+if ($ExtUtils::MakeMaker::VERSION < 6.48) {
+	my $version = delete $REQUIRE{'MIN_PERL_VERSION'};
+	$REQUIRE{PREREQ_PM}{perl}= $version;
 };
+#print $ExtUtils::MakeMaker::VERSION, "\n";
 
 print "This is ${ENDIAN}_ENDIAN machine\n";
 
