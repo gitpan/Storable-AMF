@@ -265,7 +265,7 @@ int read_u24(struct io_struct * io);
 
 		
 inline void write_double(struct io_struct *io, double value){
-	const int step = sizeof(double);
+	const int step = 8;
 	union {
 		signed   int iv;
 		unsigned int uv;

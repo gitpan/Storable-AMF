@@ -62,3 +62,6 @@ Revision history for Perl extension Storable::AMF.
 0.1503 (  605) 2008-11-15 11:53:53 +0300 
 	- Fixed read/write integer for BIGENDIAN machine
 
+0.1600 (  608) 2008-11-15 16:39:32 +0300 
+	- Improved  MakeFile.  Some compile error for Solaris eliminated.
+

@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Fcntl qw(:flock);
 use Storable::AMF0;
-our $VERSION = '0.1503';
+our $VERSION = '0.16';
 
 require Exporter;
 our @ISA = qw(Exporter);

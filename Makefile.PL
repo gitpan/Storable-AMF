@@ -1,4 +1,4 @@
-use 5.008000;
+#use 5.008000;
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -9,6 +9,13 @@ our %REQUIRE = (
 	PREREQ_PM => {}, # e.g., Module::Name => 1.1
 	MIN_PERL_VERSION => 5.008000,
 	);
+
+
+# Perl 5.6.2 or less not supported
+if  ($]< $REQUIRE{MIN_PERL_VERSION}) {
+	print "Perl $] not supported by this module\n";
+    exit(0) ;
+}
 if ($ExtUtils::MakeMaker::VERSION < 6.48) {
 	my $version = delete $REQUIRE{'MIN_PERL_VERSION'};
 	$REQUIRE{PREREQ_PM}{perl}= $version;
