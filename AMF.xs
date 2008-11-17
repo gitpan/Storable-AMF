@@ -31,6 +31,18 @@
 #define MARKER3_ARRAY	'\x09'
 #define MARKER3_OBJECT	'\x0a'
 
+#define MARKER0_NUMBER		  '\x00'
+#define MARKER0_BOOLEAN		  '\x01'
+#define MARKER0_OBJECT		  '\x02
+#define MARKER0_STRING  	  '\x03'
+#define MARKER0_CLIP		  '\x04'
+#define MARKER0_UNDEFINED  	  '\x05'
+#define MARKER0_NULL		  '\x06'
+#define MARKER0_REFERENCE 	  '\x07'
+#define MARKER0_ECMA_ARRAY 	  '\x08'
+#define MARKER0_OBJECT_END	  '\x09'
+#define MARKER0_STRICT_ARRAY  '\x0a'
+
 #define STR_EMPTY    '\x01'
 #define TRACE(ELEM) fprintf( stderr, "%s\n", (ELEM));
 #undef TRACE
@@ -250,10 +262,10 @@ inline char * SVt_string(SV * ref){
 }
 inline double read_double(struct io_struct *io);
 char read_marker(struct io_struct * io);
-int read_u8(struct io_struct * io);
-int read_u16(struct io_struct * io);
-int read_u32(struct io_struct * io);
-int read_u24(struct io_struct * io);
+int inline read_u8(struct io_struct * io);
+int inline read_u16(struct io_struct * io);
+int inline read_u32(struct io_struct * io);
+int inline read_u24(struct io_struct * io);
 
 
 #define MOVERFLOW(VALUE, MAXVALUE, PROC)\
@@ -557,14 +569,14 @@ inline double read_double(struct io_struct *io){
 	char * ptr_in  = io->pos;
 	char * ptr_out = (char *) &a; 
 	io_require(io, step);
-	ptr_out[0] = ptr_in[GET_NBYTE(step, 0, a)] ;
-	ptr_out[1] = ptr_in[GET_NBYTE(step, 1, a)] ;
-	ptr_out[2] = ptr_in[GET_NBYTE(step, 2, a)] ;
-	ptr_out[3] = ptr_in[GET_NBYTE(step, 3, a)] ;
-	ptr_out[4] = ptr_in[GET_NBYTE(step, 4, a)] ;
-	ptr_out[5] = ptr_in[GET_NBYTE(step, 5, a)] ;
-	ptr_out[6] = ptr_in[GET_NBYTE(step, 6, a)] ;
-	ptr_out[7] = ptr_in[GET_NBYTE(step, 7, a)] ;
+	ptr_out[GET_NBYTE(step, 0, a)] = ptr_in[0] ;
+	ptr_out[GET_NBYTE(step, 1, a)] = ptr_in[1] ;
+	ptr_out[GET_NBYTE(step, 2, a)] = ptr_in[2] ;
+	ptr_out[GET_NBYTE(step, 3, a)] = ptr_in[3] ;
+	ptr_out[GET_NBYTE(step, 4, a)] = ptr_in[4] ;
+	ptr_out[GET_NBYTE(step, 5, a)] = ptr_in[5] ;
+	ptr_out[GET_NBYTE(step, 6, a)] = ptr_in[6] ;
+	ptr_out[GET_NBYTE(step, 7, a)] = ptr_in[7] ;
 	io->pos += step;
 	return a;
 }
@@ -597,7 +609,7 @@ inline int read_u8(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[0];
+	str.bytes[GET_NBYTE(step, 0, str.x)] = io->pos[0];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -608,9 +620,9 @@ inline int read_s16(struct io_struct * io){
 		char bytes[8];
 	} str;
 	io_require(io, step);
-	str.x = 0;
-	str.bytes[0] = io->pos[GET_NBYTE(step, 0, str.x)];
-	str.bytes[1] = io->pos[GET_NBYTE(step, 1, str.x)];
+	str.x =  io->pos[step - 1] & '\x80' ? -1 : 0;
+	str.bytes[GET_NBYTE(step, 0, str.x)] = io->pos[0];
+	str.bytes[GET_NBYTE(step, 1, str.x)] = io->pos[1];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -622,8 +634,8 @@ inline int read_u16(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[GET_NBYTE(step, 0, str.x)];
-	str.bytes[1] = io->pos[GET_NBYTE(step, 1, str.x)];
+	str.bytes[GET_NBYTE(step, 0, str.x)] = io->pos[0];
+	str.bytes[GET_NBYTE(step, 1, str.x)] = io->pos[1];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -635,9 +647,9 @@ inline int read_u24(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[GET_NBYTE(step, 0, str.x)];
-	str.bytes[1] = io->pos[GET_NBYTE(step, 1, str.x)];
-	str.bytes[2] = io->pos[GET_NBYTE(step, 2, str.x)];
+	str.bytes[GET_NBYTE(step, 0, str.x)] = io->pos[0];
+	str.bytes[GET_NBYTE(step, 1, str.x)] = io->pos[1];
+	str.bytes[GET_NBYTE(step, 2, str.x)] = io->pos[2];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -649,10 +661,10 @@ inline int read_u32(struct io_struct * io){
 	} str;
 	io_require(io, step);
 	str.x = 0;
-	str.bytes[0] = io->pos[GET_NBYTE(step, 0, str.x)];
-	str.bytes[1] = io->pos[GET_NBYTE(step, 1, str.x)];
-	str.bytes[2] = io->pos[GET_NBYTE(step, 2, str.x)];
-	str.bytes[3] = io->pos[GET_NBYTE(step, 3, str.x)];
+	str.bytes[GET_NBYTE(step, 0, str.x)] = io->pos[0];
+	str.bytes[GET_NBYTE(step, 1, str.x)] = io->pos[1];
+	str.bytes[GET_NBYTE(step, 2, str.x)] = io->pos[2];
+	str.bytes[GET_NBYTE(step, 3, str.x)] = io->pos[3];
 	io->pos+= step;
 	return (int) str.x;
 }
@@ -1638,9 +1650,7 @@ SV * deep_clone(SV * value){
 		return copy;
 	}
 }
-			
-MODULE = Storable::AMF	PACKAGE = Storable::AMF
-MODULE = Storable::AMF0		PACKAGE = Storable::AMF0		
+MODULE = Storable::AMF PACKAGE = Storable::AMF0		
 
 void 
 dclone(SV * data)
@@ -1653,7 +1663,6 @@ dclone(SV * data)
 		retvalue = deep_clone(data);
 		sv_2mortal(retvalue);
 		XPUSHs(retvalue);
-
 
 void
 thaw(data)
