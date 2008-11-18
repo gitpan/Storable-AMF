@@ -65,3 +65,12 @@ Revision history for Perl extension Storable::AMF.
 0.1600 (  608) 2008-11-15 16:39:32 +0300 
 	- Improved  MakeFile.  Some compile error for Solaris eliminated.
 
+0.1700 (  611) 2008-11-17 13:25:30 +0300 
+	- fixed read_u* and read_s16 for big_endian machines
+
+0.1701 (  613) 2008-11-17 14:31:00 +0300 
+	- Add Perl Licence. Add marker comments
+
+0.1800 (  615) 2008-11-18 10:39:57 +0300 
+	- Fixed stupid typo( NetBSD ).
+

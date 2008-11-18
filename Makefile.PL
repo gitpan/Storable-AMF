@@ -22,7 +22,7 @@ if ($ExtUtils::MakeMaker::VERSION < 6.48) {
 };
 #print $ExtUtils::MakeMaker::VERSION, "\n";
 
-print "This is ${ENDIAN}_ENDIAN machine\n";
+#print "This is ${ENDIAN}_ENDIAN machine\n";
 
 WriteMakefile(
     NAME              => 'Storable::AMF',
@@ -36,6 +36,7 @@ WriteMakefile(
 	# Un-comment this if you add C files to link with later:
     # OBJECT            => '$(O_FILES)', # link all the C files too
 	OPTIMIZE => "-O3 -pipe -fomit-frame-pointer ",
+	($ExtUtils::MakeMaker::VERSION >= 6.31 ? (LICENSE => 'perl') : ()),
 	%REQUIRE, 
 );
 # -march=opteron -O3 -pipe -fomit-frame-pointer 

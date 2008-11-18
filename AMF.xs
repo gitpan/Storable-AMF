@@ -33,7 +33,7 @@
 
 #define MARKER0_NUMBER		  '\x00'
 #define MARKER0_BOOLEAN		  '\x01'
-#define MARKER0_OBJECT		  '\x02
+#define MARKER0_OBJECT		  '\x02'
 #define MARKER0_STRING  	  '\x03'
 #define MARKER0_CLIP		  '\x04'
 #define MARKER0_UNDEFINED  	  '\x05'
@@ -42,6 +42,13 @@
 #define MARKER0_ECMA_ARRAY 	  '\x08'
 #define MARKER0_OBJECT_END	  '\x09'
 #define MARKER0_STRICT_ARRAY  '\x0a'
+#define MARKER0_DATE	  	  '\x0b'
+#define MARKER0_LONG_STRING   '\x0c'
+#define MARKER0_UNSUPPORTED	  '\x0d'
+#define MARKER0_RECORDSET	  '\x0e'
+#define MARKER0_XML_DOCUMENT  '\x0f'
+#define MARKER0_TYPED_OBJECT  '\x10'
+#define MARKER0_AMF_PLUS	  '\x11'
 
 #define STR_EMPTY    '\x01'
 #define TRACE(ELEM) fprintf( stderr, "%s\n", (ELEM));
@@ -86,6 +93,7 @@ struct io_struct{
 	int rc_string;
 	int rc_object;
 	int rc_trait;
+	int version;
 };
 
 inline int io_position(struct io_struct *io){
@@ -158,6 +166,7 @@ inline void io_in_init(struct io_struct * io, SV *io_self, SV* data, int amf3){
 	io->message = "";
 	io->refs    = (AV*) SvRV(io_self);
 	io->status  = 'r';
+	io->version = amf3;
 	if (amf3) {
 		io->arr_string = newAV();
 		io->arr_trait = newAV();
@@ -167,6 +176,7 @@ inline void io_in_init(struct io_struct * io, SV *io_self, SV* data, int amf3){
 		sv_2mortal((SV*) io->arr_object);
 	}
 
+
 }
 inline void io_out_init(struct io_struct *io, SV* io_self, int amf3){
 	SV *sbuffer;
@@ -175,6 +185,7 @@ inline void io_out_init(struct io_struct *io, SV* io_self, int amf3){
 	int ibuf_size ;
 	int ibuf_step ;
 	sbuffer = newSVpvn("",0);
+	io->version = amf3;
 	if (1 ==1 ) {
 		ibuf_size = 255;
 		ibuf_step = 512;
