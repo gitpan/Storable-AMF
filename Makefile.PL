@@ -18,7 +18,7 @@ if  ($]< $REQUIRE{MIN_PERL_VERSION}) {
 }
 if ($ExtUtils::MakeMaker::VERSION < 6.48) {
 	my $version = delete $REQUIRE{'MIN_PERL_VERSION'};
-	$REQUIRE{PREREQ_PM}{perl}= $version;
+#	$REQUIRE{PREREQ_PM}{perl}= $version;
 };
 #print $ExtUtils::MakeMaker::VERSION, "\n";
 

@@ -38,8 +38,14 @@ is_deeply($object, {data => {obj1=> {foo=>'bar'}, obj2=>{foo=>'bar'}}}, "referen
 my $o_com = { ary => [qw(a b c)], obj => {foo=>'bar'}};
 my @nested = (ary => $o_com->{ary}, obj => $o_com->{obj});
 
-is_deeply(data('data/amf0/reference_nested'), {data => 
-{obj => $o_com->{obj}, obj2 => $o_com->{obj}, ary => $o_com->{ary}, nested => {@nested}}}, "nested reference");
+is_deeply(data('data/amf0/reference_nested'), 
+	{data => 
+		{obj => $o_com->{obj}, 
+		 obj2 => $o_com->{obj}, 
+		 ary => $o_com->{ary}, 
+		 nested => {@nested}}
+	},
+"nested reference");
 is_deeply(data('data/amf0/ecma_array'), {data => {0=>'foo', bar=> 'baz'}}, "ecma_array");# 13
 is_deeply(data('data/amf0/strict_array'), {data => ['foo', bar=> 'baz']}, "strict_array");# 14
 is_deeply(data('data/amf0/date'), {data => 1216717318745}, "date");# 15

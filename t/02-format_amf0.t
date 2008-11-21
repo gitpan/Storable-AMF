@@ -17,6 +17,10 @@ sub data{
 	return {data =>	( @values ? $values[0] : "DEEDBEEF")};
 };
 
+sub to_hex{
+	map { unpack "H*", $_ } $_[0];	
+}
+
 sub get_file{
  	my $file; #= File::Spec->catfile( $FindBin::Bin, $_[0] );
  	$file = File::Spec->catfile($TestDir, $_[0]);
@@ -28,18 +32,22 @@ sub serialize{
 	if (@values > 1) {
 		print STDERR "many returned values\n";
 	}
+	elsif (! @values) {
+		print STDERR "Failed freeze\n";
+	}
 	return $values[0];
 }
 
 my $data = get_file('data/amf0/number');
-is($data, serialize(123)," ok" );
+
+is(to_hex(serialize(123)), to_hex($data), " ok" );
 our %objects = (
-		123, get_file('data/amf0/number'),
+		'123', get_file('data/amf0/number'),
 		"foo", get_file('data/amf0/string'),
 );
 foreach my $obj (keys %objects){
 	my $data = serialize($obj);
-	is_deeply( $data, $objects{$obj});
+	is( to_hex($data), to_hex($objects{$obj}), "i50 $obj");
 }
 is_deeply(serialize({foo=>'bar'}), get_file('data/amf0/object'));
 is_deeply(serialize({ array => [foo=>'bar'], hash => {foo => "bar"}}), get_file('data/amf0/object2'));
@@ -53,7 +61,11 @@ our @objects = (
 		{foo=>'bar'},
 		{fooo => [ "bar" => 2,1,4, {gkljtlt => 1}], fasdfasd=> 12312},
 		);
+my $c=0;
+
 foreach my $obj (@objects){
 	my $data = serialize($obj);
-	is_deeply( $obj, Storable::AMF::thaw($data));
+	is_deeply( $obj, Storable::AMF::thaw($data), "obj $c");
+	++$c;
+
 }

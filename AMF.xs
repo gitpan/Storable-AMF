@@ -293,7 +293,7 @@ inline void write_double(struct io_struct *io, double value){
 		signed   int iv;
 		unsigned int uv;
 		double nv;
-		char   c[step];
+		char   c[8];
 	} v;
 	io_reserve(io, step );
 	v.nv = value;
@@ -459,7 +459,7 @@ inline void format_one(struct io_struct *io, SV * one){
 	}
 	else {
 		if (SvOK(one)){
-			if (looks_like_number(one)){
+			if (SvNIOKp(one)){
 				format_number(io, one);
 			}
 			else {
@@ -474,7 +474,7 @@ inline void format_one(struct io_struct *io, SV * one){
 		
 inline void format_number(struct io_struct *io, SV * one){
 
-	write_marker(io, '\0');
+	write_marker(io, MARKER0_NUMBER);
 	write_double(io, SvNV(one));	
 }
 inline void format_string(struct io_struct *io, SV * one){
