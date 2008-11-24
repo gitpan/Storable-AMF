@@ -74,3 +74,12 @@ Revision history for Perl extension Storable::AMF.
 0.1800 (  615) 2008-11-18 10:39:57 +0300 
 	- Fixed stupid typo( NetBSD ).
 
+0.1900 (  627) 2008-11-21 14:04:41 +0300 
+	- Patch for Solaris 2.10 compile bug
+	- Fixed implicit convertion strings to numbers in some cases
+	- Improved Makefile.PL
+
+0.2000 (  634) 2008-11-24 17:32:35 +0300 
+	- added lots tests for date. more date. more references.(AMF0). 
+	- Some algoritms fixed for date
+

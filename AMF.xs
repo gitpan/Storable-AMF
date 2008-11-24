@@ -837,7 +837,9 @@ inline SV* parse_reference(struct io_struct *io){
 	}
 	else {
 		RETVALUE = *av_fetch(ar_refs, object_offset, 0);
-		RETVALUE = newRV_inc(SvRV(RETVALUE));	
+		//SvREFCNT_inc(RETVALUE);
+		SvREFCNT_inc_simple_void_NN(RETVALUE);
+		//RETVALUE = newRV_inc(SvRV(RETVALUE));	
 	}
 	return RETVALUE;
 }
@@ -889,9 +891,10 @@ inline SV* parse_ecma_array(struct io_struct *io){
 	av_refs_len = av_len(refs);
 	av_push(refs, newRV_noinc((SV*) this_array));
 
-	//fprintf( stderr, "start parse%d\n", array_len);
+	TRACE(fprintf( stderr, "Start parse array %d\n", array_len));
 			
 	for(i=0; i<array_len; ++i){
+		TRACE(fprintf( stderr, "%d ", i));
 		int key_len= read_u16(io);
 		char *s = read_chars(io, key_len);
 		UV index;
@@ -907,13 +910,16 @@ inline SV* parse_ecma_array(struct io_struct *io){
 
 		}
 	}
+	TRACE(fprintf ( stderr, "last %d ", i ));
 	last_len = read_u16(io);
 	last_marker = read_marker(io);
-	if ((last_len == 0) && last_marker == '\x09') {
+	if ((last_len == 0) && (last_marker == '\x09')) {
+		TRACE(fprintf( stderr, "Parsed successfully\n"));
 		RETVALUE = newRV_inc((SV*) this_array);
 	}
 	else{
 		// Need rollback referenses 
+		TRACE(fprintf( stderr, "Rollback to object  successfully\n"));
 		int i;
 		for( i = av_len(refs) - av_refs_len; i>0 ;--i){
 			SV * ref = av_pop(refs);
@@ -932,6 +938,9 @@ inline SV* parse_date(struct io_struct *io){
 	time = read_double(io);
 	tz = read_s16(io);
 	RETVALUE = newSVnv(time);
+	//fprintf( stderr , "date %g\n", time);
+	av_push(io->refs, RETVALUE);
+	SvREFCNT_inc_simple_void_NN(RETVALUE);
 	return RETVALUE;
 }
 

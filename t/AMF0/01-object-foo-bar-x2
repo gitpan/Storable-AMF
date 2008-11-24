@@ -1,0 +1,1 @@
+ my $s = {foo=> 'bar'}; {obj1=>$s, obj2=>$s}; 

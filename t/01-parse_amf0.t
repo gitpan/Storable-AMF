@@ -2,50 +2,50 @@ use lib 't';
 use strict;
 use warnings;
 use ExtUtils::testlib;
-use Storable::AMF;
-use Test::More tests => 14;
-
+use Storable::AMF qw(freeze thaw retrieve);
 use GrianUtils;
-use File::Spec;
-sub data{
-	my $file = File::Spec->catfile( "t/", $_[0] );
-	my @values = Storable::AMF::thaw(GrianUtils->my_readfile($file));
-	if (@values> 1) {
-		print STDERR "many returned values\n";
-	};
-	return {data =>	( @values ? $values[0] : "DEEDBEEF")};
-};
+use Data::Dumper;
+my @item ;
+@item= map {grep { $_!~m/\./ } GrianUtils->my_readdir("t/$_/") } qw( AMF0);
 
-is_deeply(data('data/amf0/number'), {data => 123}, "read number");
-is_deeply(data('data/amf0/boolean_true'), {data => 1}, "read boolean_true");
-is_deeply(data('data/amf0/boolean_false'), {data => 0}, "read boolean_false");
+#@item = grep { /n_-?\ddd+$/ } @item;
 
-is_deeply(data('data/amf0/string'), {data => "foo"}, "read string");
+#print join "\n", @item;
+#@item = grep /complex/,@item;
+my $total = @item*4;
+#use Test::More tests => 16;
+eval "use Test::More tests=>$total;";
+warn $@ if $@;
 
-is_deeply(data('data/amf0/object'), {data => {"foo" => "bar"}}, "read object");
-is_deeply(data('data/amf0/object2'), 
-{data => 
-	{
-	array => ['foo', 'bar'], 
-	hash => {"foo" => "bar"}
-	}}, 
-	"read object2");
-is_deeply(data('data/amf0/null_object'), {data => {}}, "read null object");
-is_deeply(data('data/amf0/null'), {data => undef}, "null");
-is_deeply(data('data/amf0/undefined'), {data => undef}, "undefined");
-our $object  = data('data/amf0/reference');
-is_deeply($object, {data => {obj1=> {foo=>'bar'}, obj2=>{foo=>'bar'}}}, "reference object");
-my $o_com = { ary => [qw(a b c)], obj => {foo=>'bar'}};
-my @nested = (ary => $o_com->{ary}, obj => $o_com->{obj});
 
-is_deeply(data('data/amf0/reference_nested'), 
-	{data => 
-		{obj => $o_com->{obj}, 
-		 obj2 => $o_com->{obj}, 
-		 ary => $o_com->{ary}, 
-		 nested => {@nested}}
-	},
-"nested reference");
-is_deeply(data('data/amf0/ecma_array'), {data => {0=>'foo', bar=> 'baz'}}, "ecma_array");# 13
-is_deeply(data('data/amf0/strict_array'), {data => ['foo', bar=> 'baz']}, "strict_array");# 14
-is_deeply(data('data/amf0/date'), {data => 1216717318745}, "date");# 15
+
+for my $item (@item){
+	my $eval  = GrianUtils->my_readfile("$item");
+	no strict;
+	eval $eval;
+	die $@ if $@;
+}
+TEST_LOOP: for my $item (@item){
+	my $image_amf3 = GrianUtils->my_readfile("$item.amf3");
+	my $image_amf0 = GrianUtils->my_readfile("$item.amf0");
+	my $eval  = GrianUtils->my_readfile("$item");
+	if ($eval =~m/use\s+utf8/) {
+		SKIP: {
+			no strict;
+			skip("utf8 convert is not supported mode", 4);
+		}
+	}
+	else {
+		no strict;
+		
+		my $obj = eval $eval;
+		my $new_obj;
+		ok(defined(Storable::AMF0::freeze($obj)), "defined ($item) $eval");
+		ok(defined(Storable::AMF0::thaw(Storable::AMF0::freeze($obj)) xor not defined $obj), "full duplex $item");
+		is_deeply($new_obj = Storable::AMF0::thaw($image_amf0), $obj, "thaw name: ". $item. "(amf0):\n\n".$eval) 
+		   or print STDERR Data::Dumper->Dump([$new_obj, $obj, unpack("H*", $image_amf0)]);
+		is(ref $new_obj, ref $obj, "type of: $item :: $eval");
+	}
+}
+
+
