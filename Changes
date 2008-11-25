@@ -83,3 +83,7 @@ Revision history for Perl extension Storable::AMF.
 	- added lots tests for date. more date. more references.(AMF0). 
 	- Some algoritms fixed for date
 
+0.2100 (  644) 2008-11-25 17:22:07 +0300 
+	- Added XMLDocument type parse(amf0)
+	- Added freeze long string. More tests
+

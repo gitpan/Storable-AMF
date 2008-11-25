@@ -33,8 +33,8 @@
 
 #define MARKER0_NUMBER		  '\x00'
 #define MARKER0_BOOLEAN		  '\x01'
-#define MARKER0_OBJECT		  '\x02'
-#define MARKER0_STRING  	  '\x03'
+#define MARKER0_STRING  	  '\x02'
+#define MARKER0_OBJECT		  '\x03'
 #define MARKER0_CLIP		  '\x04'
 #define MARKER0_UNDEFINED  	  '\x05'
 #define MARKER0_NULL		  '\x06'
@@ -485,10 +485,28 @@ inline void format_string(struct io_struct *io, SV * one){
 //#~ 		if (!SvUTF8(one)) {
 //#~ 			sv_utf8_upgrade(one);
 //#~ 		};
-
-		write_marker(io, '\x02');
-		write_u16(io, SvCUR(one));
-		write_bytes(io, SvPV_nolen(one), SvCUR(one));
+		STRLEN str_len;
+		char * pv;
+		//pv = SvPV_nolen(one);
+		//str_len = SvCUR(one);
+		pv = SvPV(one, str_len);
+		if (str_len > 65500){
+			write_marker(io, MARKER0_LONG_STRING);
+			write_u32(io, str_len);
+			write_bytes(io, pv, str_len);
+		}
+		else {
+		
+			write_marker(io, MARKER0_STRING);
+			write_u16(io, SvCUR(one));
+			write_bytes(io, SvPV_nolen(one), SvCUR(one));
+			//write_marker(io, MARKER0_STRING);
+			//write_u16(io, str_len);
+			//write_bytes(io, pv, str_len);
+		}
+//#~ 		write_marker(io, '\x02');
+//#~ 		write_u16(io, SvCUR(one));
+//#~ 		write_bytes(io, SvPV_nolen(one), SvCUR(one));
 	}else{
 		format_null(io);
 	}
@@ -882,6 +900,8 @@ inline SV* parse_ecma_array(struct io_struct *io){
 	int last_len;
 	char last_marker;
 	int av_refs_len;
+	int key_len;
+	char *key_ptr;
 	array_len = read_u32(io);
 	position= io_position(io);
 
@@ -892,24 +912,43 @@ inline SV* parse_ecma_array(struct io_struct *io){
 	av_push(refs, newRV_noinc((SV*) this_array));
 
 	TRACE(fprintf( stderr, "Start parse array %d\n", array_len));
-			
-	for(i=0; i<array_len; ++i){
-		TRACE(fprintf( stderr, "%d ", i));
-		int key_len= read_u16(io);
-		char *s = read_chars(io, key_len);
-		UV index;
-		if (IS_NUMBER_IN_UV & grok_number(s, key_len, &index) &&
-		     (index < array_len)){
-			//fprintf( stderr, "  =%u, %s\n", index, s);
-			av_store(this_array, index, parse_one(io));
-		}
-		else {
-			//fprintf( stderr , "failed to parse\n");
-			io_move_backward(io, key_len + 2);
-			break;
+
+	if (0 < array_len){
+		key_len = read_u16(io);
+		key_ptr = read_chars(io, key_len);
+		if (key_len == 1) {
+			UV index;
+			if ((IS_NUMBER_IN_UV & grok_number(key_ptr, key_len, &index)) &&
+				 (index < array_len)){
+				av_store(this_array, index, parse_one(io));
+				for(i=1; i<array_len; ++i){
+					TRACE(fprintf( stderr, "%d ", i));
+					int key_len= read_u16(io);
+					char *s = read_chars(io, key_len);
+					UV index;
+					if ((IS_NUMBER_IN_UV & grok_number(s, key_len, &index)) &&
+						 (index < array_len)){
+						//fprintf( stderr, "  =%u, %s\n", index, s);
+						av_store(this_array, index, parse_one(io));
+						TRACE(fprintf( stderr, "(index=%d arr_len=%d)", index, array_len));
+					}
+					else {
+						//fprintf( stderr , "failed to parse\n");
+						io_move_backward(io, key_len + 2);
+						break;
+
+					}
+				}
+			}
+			else {
+				io_move_backward(io, key_len + 2);
+			}
 
 		}
+
 	}
+	
+	
 	TRACE(fprintf ( stderr, "last %d ", i ));
 	last_len = read_u16(io);
 	last_marker = read_marker(io);
@@ -969,6 +1008,8 @@ inline SV* parse_recordset(struct io_struct *io){
 inline SV* parse_xml_document(struct io_struct *io){
 	SV* RETVALUE;
 	RETVALUE = parse_long_string(io);
+	SvREFCNT_inc_simple_void_NN(RETVALUE);
+	av_push(io->refs, RETVALUE);
 	return RETVALUE;
 }
 inline SV* parse_typed_object(struct io_struct *io){

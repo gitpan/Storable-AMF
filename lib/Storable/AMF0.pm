@@ -3,7 +3,7 @@ package Storable::AMF0;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.20';
+our $VERSION = '0.21';
 use subs qw(freeze thaw);
 
 require Exporter;
@@ -168,6 +168,11 @@ None by default.
 
 At current moment and with restriction of AMF0/AMF3 format referrences to scalar are not serialized,
 and can't/ may not serialize tied variables.
+
+=head1 FEATURES
+
+	Due bug of Macromedia 'XML' type not serialized properly (it loose all atributes for AMF0) 
+	For AMF0 has to use XMLDocument type.
 
 =head1 SEE ALSO
 
