@@ -443,7 +443,12 @@ inline void format_one(struct io_struct *io, SV * one){
 			//fprintf( stderr,"new reference %d\n", SvIV(*OK));
 
 			if (sv_isobject(one)) {
-				format_typed_object(io, (HV *) rv);
+                if (SvTYPE(rv) == SVt_PVHV){
+                    format_typed_object(io, (HV *) rv);
+                }
+                else {
+                    format_null(io);
+                }
 			}
 			else if (SvTYPE(rv) == SVt_PVAV) 
 				format_strict_array(io, (AV*) rv);
@@ -1157,6 +1162,9 @@ SV * amf3_parse_array (struct io_struct *io){
 		STRLEN plen;		
 		struct amf3_restore_point rec_point; 
 		int old_vlen;
+        SV * item_value;
+        UV item_index;
+
 
 		TRACE("Parse first array");
 		AV * array;
@@ -1165,27 +1173,40 @@ SV * amf3_parse_array (struct io_struct *io){
 			io_savepoint(io, &rec_point);		
 		};
 
+        // Пытаемся востановить как массив 
+        // Считаем что это массив если первый индекс от 0 до 9 и все индексы числовые
+        //
 		array=newAV();
 		item = (SV *) array;
 		amf3_store_object(io, item);
 		
 		recover = FALSE;
 		old_vlen = str_len;
-		while(str_len != 1){
-			SV *value;
-			UV index;
-			pstr = amf3_read_string(io, str_len, &plen);
-			value= amf3_parse_one(io);
-			if (IS_NUMBER_IN_UV & grok_number(pstr, plen, &index)){
-				av_store(array, index, value);
-			}
-			else {
-				//recover
-				recover = TRUE;
-				break;
-			}
-			str_len = amf3_read_integer(io);
-		};
+        if (str_len !=1){
+            pstr = amf3_read_string(io, str_len, &plen);
+            item_value= amf3_parse_one(io);
+            if (IS_NUMBER_IN_UV & grok_number(pstr, plen, &item_index) && item_index< 10){
+                av_store(array, item_index, item_value);
+                str_len = amf3_read_integer(io);
+                while(str_len != 1){
+                    pstr = amf3_read_string(io, str_len, &plen);
+                    item_value= amf3_parse_one(io);
+                    if (IS_NUMBER_IN_UV & grok_number(pstr, plen, &item_index)){
+                        av_store(array, item_index, item_value);
+                        str_len = amf3_read_integer(io);
+                    }
+                    else {
+                        //recover
+                        recover = TRUE;
+                        break;
+                    }
+                };
+            }
+            else {
+                //recover
+                recover = TRUE;
+            }
+        }
 		
 		if (!recover) {
 			int i;
@@ -1194,6 +1215,7 @@ SV * amf3_parse_array (struct io_struct *io){
 			};
 		}
 		else {
+            //востанавливаем как хэш
 			HV * hv = newHV();
 			SV * sv;
 			char *pstr;
@@ -1748,7 +1770,7 @@ thaw(data)
 			else {
 				retvalue = (SV*) (parse_one(&io_record));
 				if (io_record.pos!=io_record.end){
-					warn("parse finished too early");
+					warn("parse finished too early (AMF0) ");
 				}
 				retvalue = sv_2mortal(retvalue);
 				XPUSHs(retvalue);
@@ -1775,8 +1797,10 @@ void freeze(data)
 		if (!(error_code = setjmp(io_record.target_error))){
 			format_one(&io_record, data);
 		}
-		else {
-			warn("failed to format");	
+		else{
+            char errorbuf[50];
+            sprintf(errorbuf, "failed format to AMF0(code %d)", error_code);
+            warn(errorbuf);
 		}
 
 		sv_2mortal(io_self);

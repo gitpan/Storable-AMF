@@ -5,4 +5,8 @@
 	- fix read_s*
 	- realizate readObject, CanRead, 
 	- NEED: Circled DestroyObject
+    - more documentation on thaw ARRAY, XML
+    - add test for "Unsual types" CODEREF, GLOB, REF
+    - add limit memory behaivor
+
 
