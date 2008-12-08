@@ -1,12 +1,11 @@
 	- In function amf3_write_integer
   	  think about warning of Integer overflow
 	  rewrite needed
-	- remove requirement 5.8.0 for 5.6.2 due grok_number() emplements_ok
-	- fix read_s*
+	- fix read_s*( rename )
 	- realizate readObject, CanRead, 
 	- NEED: Circled DestroyObject
     - more documentation on thaw ARRAY, XML
-    - add test for "Unsual types" CODEREF, GLOB, REF
-    - add limit memory behaivor
-
-
+    - add limit memory behavior
+    - Document freeze of CODEREF, REF, SCALAR, GLOB, IO, Regexp
+    - Fix documentation.
+    - Change Error printing;

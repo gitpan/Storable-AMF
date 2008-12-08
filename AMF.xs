@@ -17,6 +17,7 @@
 #define ERR_BAD_TRAIT_REF 12
 #define ERR_BAD_XML_REF 13
 #define ERR_BAD_BYTEARRAY_REF 14
+#define ERR_EXTRA_BYTE 15
 
 #define AMF0 0
 #define AMF3 3
@@ -447,7 +448,8 @@ inline void format_one(struct io_struct *io, SV * one){
                     format_typed_object(io, (HV *) rv);
                 }
                 else {
-                    format_null(io);
+                    // may be i has to format as undef
+                    io_register_error(io, ERR_BAD_OBJECT);
                 }
 			}
 			else if (SvTYPE(rv) == SVt_PVAV) 
@@ -1733,6 +1735,7 @@ SV * deep_clone(SV * value){
 		return copy;
 	}
 }
+
 MODULE = Storable::AMF PACKAGE = Storable::AMF0		
 
 void 
@@ -1769,11 +1772,14 @@ thaw(data)
 			}
 			else {
 				retvalue = (SV*) (parse_one(&io_record));
+				retvalue = sv_2mortal(retvalue);
 				if (io_record.pos!=io_record.end){
 					warn("parse finished too early (AMF0) ");
+                    // TODO: error code
 				}
-				retvalue = sv_2mortal(retvalue);
-				XPUSHs(retvalue);
+                else {
+                    XPUSHs(retvalue);
+                }
 			}
 			//retvalue = sv_2mortal(newSVnv(1.0));
 		}
@@ -1793,9 +1799,12 @@ void freeze(data)
 		int error_code;
 	PPCODE:
 		io_self= newSV(0);
+		sv_2mortal(io_self);
 		io_out_init(&io_record, 0, AMF0);
 		if (!(error_code = setjmp(io_record.target_error))){
 			format_one(&io_record, data);
+            retvalue = sv_2mortal(io_buffer(&io_record));
+            XPUSHs(retvalue);
 		}
 		else{
             char errorbuf[50];
@@ -1803,10 +1812,6 @@ void freeze(data)
             warn(errorbuf);
 		}
 
-		sv_2mortal(io_self);
-		retvalue = sv_2mortal(io_buffer(&io_record));
-		//retvalue = sv_2mortal(newSVnv(1.0));
-		XPUSHs(retvalue);
 
 MODULE = Storable::AMF0		PACKAGE = Storable::AMF3		
 void
@@ -1834,12 +1839,15 @@ thaw(data)
 			}
 			else {
 				retvalue = (SV*) (amf3_parse_one(&io_record));
+                sv_2mortal(retvalue);
 				if (io_record.pos!=io_record.end){
 					warn("parse finished too early");
+                    
 				}
-				retvalue = sv_2mortal(retvalue);
-				XPUSHs(retvalue);
-			}
+                else {
+		    		XPUSHs(retvalue);
+                };
+	    	}
 			//retvalue = sv_2mortal(newSVnv(1.0));
 		}
 		else {
@@ -1859,6 +1867,9 @@ void freeze(data)
 		io_out_init(&io_record, 0, AMF3);
 		if (!(error_code = setjmp(io_record.target_error))){
 			amf3_format_one(&io_record, data);
+            sv_2mortal(io_self);
+            retvalue = sv_2mortal(io_buffer(&io_record));
+            XPUSHs(retvalue);
 		}
 		else {
 			char errbuf[50];
@@ -1868,8 +1879,5 @@ void freeze(data)
 			warn(errbuf);
 		}
 
-		sv_2mortal(io_self);
-		retvalue = sv_2mortal(io_buffer(&io_record));
-		XPUSHs(retvalue);
 
 MODULE = Storable::AMF

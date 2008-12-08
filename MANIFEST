@@ -11,6 +11,7 @@ lib/Storable/AMF0.pm
 lib/Storable/AMF3.pm
 t/00-compile.t
 t/01-parse_amf0.t
+t/02-parse_amf3.t
 t/03-format.t
 t/04-blessed.t
 t/05-dclone.t
@@ -18,6 +19,9 @@ t/06-last-undef.t
 t/07-self_refs.t
 t/08-real-data.t
 t/AMF0/01-array-0-foo-bar-baz
+t/AMF0/01-xml-dup.xml
+t/AMF0/01-xml-empty.xml
+t/AMF0/01-xml-html-empty.xml
 t/AMF0/01-array-0-foo-bar-baz.amf0
 t/AMF0/01-array-0-foo-bar-baz.amf3
 t/AMF0/01-array-foo-bar-x2
@@ -354,4 +358,8 @@ t/27/tobject_3_0.amf0
 t/27/tobject_3_0.amf3
 t/28-all-amf0-amf3.t
 t/30-can-all.t
+t/41-negative-freeze-amf0.t
+t/42-negative-freeze-amf3.t
+t/43-neg-parse_amf0.t
+t/44-neg-parse_amf3.t
 META.yml                                 Module meta-data (added by MakeMaker)

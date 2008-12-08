@@ -94,3 +94,10 @@ Revision history for Perl extension Storable::AMF.
     - Fixed thaw_amf3 for array. 
     - Fixed test for AMF3 XML
 
+0.2300 (  704) 2008-12-08 11:54:41 +0300 
+	- Fixed bug behavior for freeze.
+    - Added tests for blessed or not CODEREF, etc.
+
+0.2400 (  706) 2008-12-08 14:25:38 +0300 
+	- Add negative tests for trimed and extra bytes in stream (thaw). Bug with successfully parses was fixed.
+
