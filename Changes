@@ -101,3 +101,9 @@ Revision history for Perl extension Storable::AMF.
 0.2400 (  706) 2008-12-08 14:25:38 +0300 
 	- Add negative tests for trimed and extra bytes in stream (thaw). Bug with successfully parses was fixed.
 
+0.2600 (  718) 2008-12-09 17:57:51 +0300 
+	- added Carp for store, nstore, etc.
+
+0.2700 (  746) 2008-12-12 18:56:23 +0300 
+	- added aux function: ref_destroy ref_lost_memory
+

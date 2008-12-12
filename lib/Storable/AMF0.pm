@@ -3,10 +3,12 @@ package Storable::AMF0;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.24';
+our $VERSION = '0.27';
 use subs qw(freeze thaw);
+use Scalar::Util qw(refaddr reftype); # for ref_circled
 
 require Exporter;
+use Carp qw(carp);
 our @ISA = qw(Exporter);
 
 # Items to export into callers namespace by default. Note: do not export
@@ -14,7 +16,9 @@ our @ISA = qw(Exporter);
 # Do not simply export all your public functions/methods/constants.
 
 our %EXPORT_TAGS = ( 'all' => [ qw(
-	freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store
+	freeze thaw	dclone 
+    retrieve lock_retrieve lock_store lock_nstore store
+    ref_lost_memory ref_destroy
 ) ] );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
@@ -45,8 +49,11 @@ sub store{
 	my $file   = shift;
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	truncate $fh, 0;
-	print $fh freeze($object);
-	close($fh);
+	#print $fh freeze($object);
+    my $freeze = freeze($object);
+    carp "Bad object" unless defined $freeze;
+	print $fh $freeze if defined $freeze;
+	close($fh) and  defined $freeze;;
 }
 
 sub lock_store{
@@ -55,9 +62,12 @@ sub lock_store{
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	flock $fh, LOCK_EX;
 	truncate $fh, 0;
-	print $fh freeze($object);
+	#print $fh freeze($object);
+    my $freeze = freeze($object);
+    carp "Bad object" unless defined $freeze;
+	print $fh $freeze if defined $freeze;
 	flock $fh, LOCK_UN;
-	close($fh);
+	close($fh) and  defined $freeze;;
 }
 
 sub nstore{
@@ -65,8 +75,11 @@ sub nstore{
 	my $file   = shift;
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	truncate $fh, 0;
-	print $fh freeze($object);
-	close($fh);
+	#print $fh freeze($object);
+    my $freeze = freeze($object);
+    carp "Bad object" unless defined $freeze;
+	print $fh $freeze if defined $freeze;
+	close($fh) and  defined $freeze;;
 }
 
 sub lock_nstore{
@@ -75,10 +88,64 @@ sub lock_nstore{
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	flock $fh, LOCK_EX;
 	truncate $fh, 0;
-	print $fh freeze($object);
+    my $freeze = freeze($object);
+    if ( defined $freeze ) {
+        print $fh $freeze;
+    };
 	flock $fh, LOCK_UN;
-	close($fh);
+	close($fh) and  defined $freeze;
 }
+
+sub _ref_selfref{
+    my $obj_addr =shift;
+    my $value = shift;
+    my $addr  = refaddr $value;
+    return unless defined $addr;
+    if ( reftype $value eq 'ARRAY'){
+            
+            return $$obj_addr{$addr} if exists $$obj_addr{$addr}; 
+            $$obj_addr{$addr} = 1;
+            _ref_selfref($obj_addr, $_) && return 1  for @$value;
+            $$obj_addr{$addr} = 0;
+        }
+    elsif ( reftype $value eq 'HASH'){
+
+            
+            return $$obj_addr{$addr} if exists $$obj_addr{$addr}; 
+            $$obj_addr{$addr} = 1;
+            _ref_selfref($obj_addr, $_) && return 1  for values %$value;
+            $$obj_addr{$addr} = 0;
+        }
+    else {
+            return ;
+    };
+
+    return ;
+}
+
+sub ref_lost_memory{
+    my $ref = shift;
+    my %obj_addr;
+    return _ref_selfref(\%obj_addr, $ref);
+}
+
+sub ref_destroy{
+    my $ref = shift;
+    my %addr;
+    return unless (refaddr $ref);
+    my @r;
+    if (reftype $ref eq 'ARRAY'){
+        @r = @$ref;
+        @$ref =();
+        ref_destroy($_) for @r;
+    }
+    elsif (reftype  $ref eq 'HASH'){
+        @r = values %$ref;
+        %$ref =();
+        ref_destroy($_) for @r;
+    }
+}
+
 #~ sub dclone{
 #~  	my $object = shift;
 #~  	return thaw(freeze($object));

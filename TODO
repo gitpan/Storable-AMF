@@ -8,4 +8,6 @@
     - add limit memory behavior
     - Document freeze of CODEREF, REF, SCALAR, GLOB, IO, Regexp
     - Fix documentation.
-    - Change Error printing;
+    - Change Error reporting
+    - Add test for store function
+    - Add experimental store of REFSCALAR

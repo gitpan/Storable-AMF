@@ -3,9 +3,10 @@ package Storable::AMF3;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.24';
+our $VERSION = '0.27';
 use subs qw(freeze thaw);
 require Exporter;
+use Carp qw(carp);
 
 our @ISA = qw(Exporter);
 
@@ -47,8 +48,11 @@ sub store{
 	my $file   = shift;
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	truncate $fh, 0;
-	print $fh freeze($object);
-	close($fh);
+	#print $fh freeze($object);
+    my $freeze;
+    carp "Bad object" unless defined ($freeze = freeze $object);
+    print $fh $freeze if defined($freeze);
+	close($fh) and  defined $freeze;
 }
 
 sub lock_store{
@@ -57,9 +61,12 @@ sub lock_store{
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	flock $fh, LOCK_EX;
 	truncate $fh, 0;
-	print $fh freeze($object);
+	#print $fh freeze($object);
+    my $freeze;
+    carp "Bad object" unless defined ($freeze = freeze $object);
+    print $fh $freeze if defined($freeze);
 	flock $fh, LOCK_UN;
-	close($fh);
+	close($fh) and defined $freeze;
 }
 
 sub nstore{
@@ -67,8 +74,11 @@ sub nstore{
 	my $file   = shift;
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	truncate $fh, 0;
-	print $fh freeze($object);
-	close($fh);
+	#print $fh freeze($object);
+    my $freeze;
+    carp "Bad object" unless defined ($freeze = freeze $object);
+    print $fh $freeze if defined($freeze);
+	close($fh) and defined $freeze;
 }
 
 sub lock_nstore{
@@ -77,9 +87,12 @@ sub lock_nstore{
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	flock $fh, LOCK_EX;
 	truncate $fh, 0;
-	print $fh freeze($object);
+	#print $fh freeze($object);
+    my $freeze;
+    carp "Bad object" unless defined ($freeze = freeze $object);
+    print $fh $freeze if defined($freeze);
 	flock $fh, LOCK_UN;
-	close($fh);
+	close($fh) and defined $freeze;
 }
 #~ sub dclone{
 #~ 	my $object = shift;

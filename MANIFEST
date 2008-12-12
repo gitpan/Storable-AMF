@@ -18,6 +18,7 @@ t/05-dclone.t
 t/06-last-undef.t
 t/07-self_refs.t
 t/08-real-data.t
+t/09-aux-utility.t
 t/AMF0/01-array-0-foo-bar-baz
 t/AMF0/01-xml-dup.xml
 t/AMF0/01-xml-empty.xml
