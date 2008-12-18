@@ -3,7 +3,7 @@ package Storable::AMF0;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.27';
+our $VERSION = '0.30';
 use subs qw(freeze thaw);
 use Scalar::Util qw(refaddr reftype); # for ref_circled
 
@@ -164,11 +164,11 @@ __END__
 
 =head1 NAME
 
-Storable::AMF0 - Perl extension for serialize/deserialize AMF0 data
+Storable::AMF0 - Perl extension for serialize/deserialize AMF0/AMF3 data
 
 =head1 SYNOPSIS
 
-  use Storable::AMF0 qw(freeze thaw);
+  use Storable::AMF0 qw(freeze thaw); # or use Storable::AMF3 qw(freeze thaw) for AMF3 format
 
   $amf0 = freeze($perl_object);
   $perl_object = thaw($amf0);
@@ -176,59 +176,91 @@ Storable::AMF0 - Perl extension for serialize/deserialize AMF0 data
 	
   # Store/retrieve to disk amf0 data
 	
-  use Storable::AMF0 qw(store retrieve);
   store $perl_object, 'file';
   $restored_perl_object = retrieve 'file';
 
 
-  use Storable::AMF qw(nstore freeze thaw dclone);
+  use Storable::AMF0 qw(nstore freeze thaw dclone);
 
   # Network order: Due to spec of AMF0 format objects (hash, arrayref) stored in network order.
   # and thus nstore and store are synonyms 
 
   nstore \%table, 'file';
-  $hashref = retrieve('file');  # There is NO nretrieve()
+  $hashref = retrieve('file'); 
 
   
   # Advisory locking
-  use Storable::AMF qw(lock_store lock_nstore lock_retrieve)
+  use Storable::AMF0 qw(lock_store lock_nstore lock_retrieve)
   lock_store \%table, 'file';
   lock_nstore \%table, 'file';
   $hashref = lock_retrieve('file');
 
+=cut
+
 =head1 DESCRIPTION
 
-This module is (de)serializer for Adobe's AMF (Action Message Format).
-This is only module and it recognize only AMF data. 
-Core function implemented in C. And some cases faster then Storable( for me always)
+This module is (de)serializer for Adobe's AMF0/AMF3 (Action Message Format ver 0-3).
+This is only module and it recognize only AMF0 data. 
+Almost all function implemented in C for speed. 
+And some cases faster then Storable( for me always)
 
-=head2 EXPORT
-
-None by default.
-
-=head1 EXPORT_OK
 =cut
-=head2 freeze($obj) 
-  Serialize perl object($obj) to AMF, and return AMF data
 
-=head2 thaw($amf0)
-  Deserialize AMF data to perl object, and return the perl object
-=head2 store $obj, $file
-  Store serialized AMF0 data to file
-=head2 nstore $obj, $file
- Same as store
-=head2 retrieve $obj, $file
-=head2 lock_store $obj, $file
-  Same as store but with Advisory locking
-=head2 lock_nstore $obj, $file
-  Same as lock_store 
-=head2 lock_retrieve $file
-  Same as retrieve but with advisory locking
+=head1 EXPORT
+  
+  None by default.
+
 =cut
+=head1 FUNCTIONS
+=cut
+
+=over
+
+=item freeze($obj) 
+  --- Serialize perl object($obj) to AMF0, and return AMF0 data
+
+=item thaw($amf0)
+  --- Deserialize AMF0 data to perl object, and return the perl object
+
+=item store $obj, $file
+  --- Store serialized AMF0 data to file
+
+=item nstore $obj, $file
+  --- Same as store
+
+=item retrieve $obj, $file
+  --- Retrieve serialized AMF0 data from file
+
+=item lock_store $obj, $file
+  --- Same as store but with Advisory locking
+
+=item lock_nstore $obj, $file
+  --- Same as lock_store 
+
+=item lock_retrieve $file
+  --- Same as retrieve but with advisory locking
+
+=item dclone $file
+  --- Deep cloning data structure
+
+=item ref_destroy $obj
+  --- Deep decloning data structure
+  --- safely destroy cloned object or any object 
+
+=item ref_lost_memory $obj
+  --- test if object contain lost memory fragments inside.
+  (Example do { my $a = []; @$a=$a; $a})
+
+=back
 
 =head1 NOTICE
 
-  Storable::AMF is currently at alpha development stage. 
+  Storable::AMF0 is currently is alpha development stage. 
+
+=cut
+=head1 NOTICE
+
+  Storable::AMF0 is currently at alpha development stage. 
 =cut
 
 =head1 LIMITATION

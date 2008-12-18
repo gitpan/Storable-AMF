@@ -4,8 +4,8 @@
 #########################
 
 # change 'tests => 1' to 'tests => last_test_to_print';
+
 BEGIN { 
-	#@methods = @Storable::AMF::EXPORT_OK;
 	$totals =  3;
 	eval "use Test::More tests => $totals";
 

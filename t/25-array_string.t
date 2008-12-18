@@ -2,7 +2,7 @@ use lib 't';
 use strict;
 use warnings;
 use ExtUtils::testlib;
-use Storable::AMF qw(freeze thaw retrieve);
+use Storable::AMF0 qw(freeze thaw retrieve);
 use GrianUtils;
 
 my @item = grep { $_!~m/\./ } GrianUtils->my_readdir('t/25/');

@@ -2,7 +2,7 @@ use strict;
 use Test::More tests=>21;
 use warnings;
 
-use Storable::AMF qw(freeze thaw);
+use Storable::AMF0 qw(freeze thaw);
 
 my @objects = (
 	do { 

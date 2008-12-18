@@ -50,9 +50,10 @@
 #define MARKER0_XML_DOCUMENT  '\x0f'
 #define MARKER0_TYPED_OBJECT  '\x10'
 #define MARKER0_AMF_PLUS	  '\x11'
+#define MARKER3_AMF_PLUS	  '\x11'
 
 #define STR_EMPTY    '\x01'
-#define TRACE(ELEM) fprintf( stderr, "%s\n", (ELEM));
+#define TRACE(ELEM) PerlIO_printf( PerlIO_stderr(), "%s\n", (ELEM));
 #undef TRACE
 #define TRACE(ELEM) ;
 
@@ -282,7 +283,7 @@ int inline read_u24(struct io_struct * io);
 
 #define MOVERFLOW(VALUE, MAXVALUE, PROC)\
 	if (VALUE > MAXVALUE) { \
-		fprintf( stderr, "Overflow in %s. expected less %d. got %d\n", PROC, MAXVALUE, VALUE); \
+		PerlIO_printf( PerlIO_stderr(), "Overflow in %s. expected less %d. got %d\n", PROC, MAXVALUE, VALUE); \
 		io_register_error(io, ERR_OVERFLOW); \
 	}
 
@@ -434,14 +435,14 @@ inline void format_one(struct io_struct *io, SV * one){
 		// test has stored
 		SV **OK = hv_fetch(io->RV_HASH, (char *)(&rv), sizeof (rv), 1);
 		if (SvOK(*OK)) {
-			//fprintf( stderr,"old reference %d\n", SvIV(*OK));
+			//PerlIO_printf( PerlIO_stderr(),"old reference %d\n", SvIV(*OK));
 			format_reference(io, *OK);
 		}
 		else {
 			sv_setiv(*OK, io->RV_COUNT);
 			//hv_store(io->RV_HASH, (char *) (&rv), sizeof (rv), newSViv(io->RV_COUNT), 0);
 			++io->RV_COUNT;
-			//fprintf( stderr,"new reference %d\n", SvIV(*OK));
+			//PerlIO_printf( PerlIO_stderr(),"new reference %d\n", SvIV(*OK));
 
 			if (sv_isobject(one)) {
                 if (SvTYPE(rv) == SVt_PVHV){
@@ -455,7 +456,7 @@ inline void format_one(struct io_struct *io, SV * one){
 			else if (SvTYPE(rv) == SVt_PVAV) 
 				format_strict_array(io, (AV*) rv);
 			else if (SvTYPE(rv) == SVt_PVHV) {
-				write_marker(io, '\x03');
+				write_marker(io, MARKER0_OBJECT);
 				format_object(io, (HV*) rv);
 			}
 			else {
@@ -507,13 +508,7 @@ inline void format_string(struct io_struct *io, SV * one){
 			write_marker(io, MARKER0_STRING);
 			write_u16(io, SvCUR(one));
 			write_bytes(io, SvPV_nolen(one), SvCUR(one));
-			//write_marker(io, MARKER0_STRING);
-			//write_u16(io, str_len);
-			//write_bytes(io, pv, str_len);
-		}
-//#~ 		write_marker(io, '\x02');
-//#~ 		write_u16(io, SvCUR(one));
-//#~ 		write_bytes(io, SvPV_nolen(one), SvCUR(one));
+        }
 	}else{
 		format_null(io);
 	}
@@ -551,11 +546,11 @@ inline void format_object(struct io_struct *io, HV * one){
 		format_one(io, value);
 	}
 	write_u16(io, 0);
-	write_marker(io, '\x09');
+	write_marker(io, MARKER0_OBJECT_END);
 }
 inline void format_null(struct io_struct *io){
 	
-	write_marker(io, '\x05');
+	write_marker(io, MARKER0_UNDEFINED);
 }
 inline void format_typed_object(struct io_struct *io,  HV * one){
 	HV* stash = SvSTASH(one);
@@ -812,7 +807,7 @@ inline SV * parse_object(struct io_struct * io){
 		if (len_next == 0) {
 			char object_end;
 			object_end= read_marker(io);
-			if ((object_end == '\x09'))
+			if ((object_end == MARKER0_OBJECT_END))
 			{
 				return (SV*) newRV_inc((SV*)obj);
 			}
@@ -820,7 +815,7 @@ inline SV * parse_object(struct io_struct * io){
 				io->pos--;
 				key = "";
 				value = parse_one(io);
-				//fprintf( stderr, "end object marker is %d\n", (int)object_end);
+				//PerlIO_printf( PerlIO_stderr(), "end object marker is %d\n", (int)object_end);
 			}
 		}
 		else {
@@ -918,7 +913,7 @@ inline SV* parse_ecma_array(struct io_struct *io){
 	av_refs_len = av_len(refs);
 	av_push(refs, newRV_noinc((SV*) this_array));
 
-	TRACE(fprintf( stderr, "Start parse array %d\n", array_len));
+	TRACE(PerlIO_printf( PerlIO_stderr(), "Start parse array %d\n", array_len));
 
 	if (0 < array_len){
 		key_len = read_u16(io);
@@ -929,18 +924,18 @@ inline SV* parse_ecma_array(struct io_struct *io){
 				 (index < array_len)){
 				av_store(this_array, index, parse_one(io));
 				for(i=1; i<array_len; ++i){
-					TRACE(fprintf( stderr, "%d ", i));
+					TRACE(PerlIO_printf( PerlIO_stderr(), "%d ", i));
 					int key_len= read_u16(io);
 					char *s = read_chars(io, key_len);
 					UV index;
 					if ((IS_NUMBER_IN_UV & grok_number(s, key_len, &index)) &&
 						 (index < array_len)){
-						//fprintf( stderr, "  =%u, %s\n", index, s);
+						//PerlIO_printf( PerlIO_stderr(), "  =%u, %s\n", index, s);
 						av_store(this_array, index, parse_one(io));
-						TRACE(fprintf( stderr, "(index=%d arr_len=%d)", index, array_len));
+						TRACE(PerlIO_printf( PerlIO_stderr(), "(index=%d arr_len=%d)", index, array_len));
 					}
 					else {
-						//fprintf( stderr , "failed to parse\n");
+						//PerlIO_printf( PerlIO_stderr() , "failed to parse\n");
 						io_move_backward(io, key_len + 2);
 						break;
 
@@ -956,16 +951,16 @@ inline SV* parse_ecma_array(struct io_struct *io){
 	}
 	
 	
-	TRACE(fprintf ( stderr, "last %d ", i ));
+	TRACE(PerlIO_printf ( PerlIO_stderr(), "last %d ", i ));
 	last_len = read_u16(io);
 	last_marker = read_marker(io);
-	if ((last_len == 0) && (last_marker == '\x09')) {
-		TRACE(fprintf( stderr, "Parsed successfully\n"));
+	if ((last_len == 0) && (last_marker == MARKER0_OBJECT_END)) {
+		TRACE(PerlIO_printf( PerlIO_stderr(), "Parsed successfully\n"));
 		RETVALUE = newRV_inc((SV*) this_array);
 	}
 	else{
 		// Need rollback referenses 
-		TRACE(fprintf( stderr, "Rollback to object  successfully\n"));
+		TRACE(PerlIO_printf( PerlIO_stderr(), "Rollback to object  successfully\n"));
 		int i;
 		for( i = av_len(refs) - av_refs_len; i>0 ;--i){
 			SV * ref = av_pop(refs);
@@ -984,7 +979,7 @@ inline SV* parse_date(struct io_struct *io){
 	time = read_double(io);
 	tz = read_s16(io);
 	RETVALUE = newSVnv(time);
-	//fprintf( stderr , "date %g\n", time);
+	//PerlIO_printf( PerlIO_stderr() , "date %g\n", time);
 	av_push(io->refs, RETVALUE);
 	SvREFCNT_inc_simple_void_NN(RETVALUE);
 	return RETVALUE;
@@ -1094,7 +1089,7 @@ inline char * amf3_read_string( struct io_struct *io, int ref_len, STRLEN *str_l
 		if (ref_sv) {
 			char* pstr;
 			pstr = SvPV(*ref_sv, *str_len);
-			//fprintf( stderr, "C(%s, %d, %d)\n", pstr, *str_len, ref_len);
+			//PerlIO_printf( PerlIO_stderr(), "C(%s, %d, %d)\n", pstr, *str_len, ref_len);
 			return pstr; 
 		}
 		else {
@@ -1110,7 +1105,7 @@ SV * amf3_parse_string (struct io_struct *io){
 	char* pstr;
 	ref_len  = amf3_read_integer(io);
 	pstr = amf3_read_string(io, ref_len, &plen);
-//	fprintf( stderr, "A(%s, %d, %d)\n", pstr, plen, ref_len);
+//	PerlIO_printf( PerlIO_stderr(), "A(%s, %d, %d)\n", pstr, plen, ref_len);
 	RETVALUE = newSVpvn(pstr, plen);
 	//SvUTF8_on(RETVALUE);
 	return RETVALUE;
@@ -1146,7 +1141,7 @@ SV * amf3_parse_date (struct io_struct *io){
 
 
 inline void amf3_store_object(struct io_struct *io, SV * item){
-	//fprintf( stderr, "store ref %p %d %p\n", io->arr_object, io->rc_object, item);
+	//PerlIO_printf( PerlIO_stderr(), "store ref %p %d %p\n", io->arr_object, io->rc_object, item);
 	av_push(io->arr_object, newRV(item));
 	io->rc_object++;
 }
@@ -1298,7 +1293,7 @@ SV * amf3_parse_object (struct io_struct *io){
 			class_name_sv = amf3_parse_string(io);
 			//class_name = SvPV(class_name_sv, class_name_len);
 			
-			//fprintf( stderr, "A(%d, %d, %d, %s)\n", sealed, dynamic, class_name_len, class_name);
+			//PerlIO_printf( PerlIO_stderr(), "A(%d, %d, %d, %s)\n", sealed, dynamic, class_name_len, class_name);
 			av_push(trait, newSViv(sealed));
 			av_push(trait, newSViv(dynamic));
 			av_push(trait, newSViv(0)); // external processing
@@ -1336,7 +1331,7 @@ SV * amf3_parse_object (struct io_struct *io){
 			pstr = amf3_read_string(io, varlen, &plen);
 
 			while(plen != 0) { 
-		//		fprintf( stderr, "B(%d, %s)\n", plen, pstr);
+		//		PerlIO_printf( PerlIO_stderr(), "B(%d, %s)\n", plen, pstr);
 				hv_store(one, pstr, plen, amf3_parse_one(io), 0);				
 				varlen = amf3_read_integer(io);
 				pstr = amf3_read_string(io, varlen, &plen);
@@ -1350,7 +1345,7 @@ SV * amf3_parse_object (struct io_struct *io){
 			RETVALUE = newRV(SvRV(*ref));
 		}
 		else {
-			//fprintf (stderr, "Bad object ref(array)\n");
+			//PerlIO_printf (PerlIO_stderr(), "Bad object ref(array)\n");
 			io_register_error(io, ERR_BAD_TRAIT_REF);
 			RETVALUE = &PL_sv_undef;	
 		}
@@ -1402,21 +1397,21 @@ SV * amf3_parse_bytearray (struct io_struct *io){
 inline void amf3_format_one(struct io_struct *io, SV * one);
 inline void amf3_format_integer(struct io_struct *io, SV *one){
 	
-	write_marker(io, '\x04');
+	write_marker(io, MARKER3_INTEGER);
 	amf3_write_integer(io, SvIV(one));
 }
 
 inline void amf3_format_double(struct io_struct * io, SV *one){
 	
-	write_marker(io, '\x05');
+	write_marker(io, MARKER3_DOUBLE);
 	write_double(io, SvNV(one));
 }
 
 inline void amf3_format_undef(struct io_struct *io){
-	write_marker( io, '\x00');
+	write_marker( io, MARKER3_UNDEF);
 }
 inline void amf3_format_null(struct io_struct *io){
-	write_marker( io, '\x01');
+	write_marker( io, MARKER3_NULL);
 }
 
 inline void amf3_write_string_pvn(struct io_struct *io, char *pstr, STRLEN plen){
@@ -1426,21 +1421,21 @@ inline void amf3_write_string_pvn(struct io_struct *io, char *pstr, STRLEN plen)
 	rhv = io->hv_string;
 	hv_item = hv_fetch(rhv, pstr, plen, 0);
 	
-	//fprintf( stderr, "Format string: %s(%d)\n", p,plen );
+	//PerlIO_printf( PerlIO_stderr(), "Format string: %s(%d)\n", p,plen );
 	if (hv_item && SvOK(*hv_item)){
 		int sref = SvIV(*hv_item);
 		amf3_write_integer( io, sref <<1);
 	}
 	else {
 		if (plen) {
-			//fprintf(stderr, "FFF%d \n", (plen <<1) |1);
+			//PerlIO_printf(PerlIO_stderr(), "FFF%d \n", (plen <<1) |1);
 			amf3_write_integer( io, (plen << 1)	| 1);
 			write_bytes(io, pstr, plen);
 			hv_store(rhv, pstr, plen, newSViv(io->rc_string), 0);
 			io->rc_string++;
 		}
 		else {
-			write_marker(io, '\x01');
+			write_marker(io, STR_EMPTY);
 		}
 	}
 }
@@ -1449,7 +1444,7 @@ inline void amf3_format_string(struct io_struct *io, SV *one){
 	char *pstr;
 	STRLEN plen;
 	pstr = SvPV(one, plen);
-	write_marker(io, '\x06');
+	write_marker(io, MARKER3_STRING);
 	amf3_write_string_pvn(io, pstr, plen);
 }
 
@@ -1461,18 +1456,18 @@ inline void amf3_format_array(struct io_struct *io, AV * one){
 	int alen;
 	int i;
 	SV ** aitem;
-	write_marker(io, '\x09');
+	write_marker(io, MARKER3_ARRAY);
 	alen = av_len(one)+1;
 	amf3_write_integer(io, 1 | (alen) <<1 );
 	write_marker(io, STR_EMPTY); // no sparse array;
-	//fprintf(stderr, "array len=%d\n", alen);
+	//PerlIO_printf(PerlIO_stderr(), "array len=%d\n", alen);
 	for( i = 0; i<alen ; ++i){
 		aitem = av_fetch(one, i, 0);
 		if (aitem) {
 			amf3_format_one(io, *aitem);
 		}
 		else {
-			//fprintf(stderr, "Null at index %d\n", i);
+			//PerlIO_printf(PerlIO_stderr(), "Null at index %d\n", i);
 			write_marker(io, MARKER3_NULL);
 		}
 	}
@@ -1498,7 +1493,7 @@ inline void amf3_format_object(struct io_struct *io, HV * one){
 	};
 	
 	rv_trait = hv_fetch(io->hv_trait, class_name, class_name_len, 0);
-	//fprintf( stderr, "trait=%p\n", rv_trait);
+	//PerlIO_printf( PerlIO_stderr(), "trait=%p\n", rv_trait);
 	if (rv_trait){
 		int ref_trait;
 		trait = (AV *) SvRV(*rv_trait);	
@@ -1554,7 +1549,7 @@ inline void amf3_format_one(struct io_struct *io, SV * one){
 		// test has stored
 		SV **OK = hv_fetch(io->hv_object, (char *)(&rv), sizeof (rv), 1);
 		if (SvOK(*OK)) {
-			//fprintf( stderr,"old reference %d\n", SvIV(*OK));
+			//PerlIO_printf( PerlIO_stderr(),"old reference %d\n", SvIV(*OK));
 			if (SvTYPE(rv) == SVt_PVAV) {
 				write_marker(io, MARKER3_ARRAY);
 				amf3_format_reference(io, *OK);
@@ -1571,7 +1566,7 @@ inline void amf3_format_one(struct io_struct *io, SV * one){
 			sv_setiv(*OK, io->rc_object);
 			hv_store(io->hv_object, (char *) (&rv), sizeof (rv), newSViv(io->rc_object), 0);
 			++io->rc_object;
-			//fprintf( stderr,"new reference %d\n", SvIV(*OK));
+			//PerlIO_printf( PerlIO_stderr(),"new reference %d\n", SvIV(*OK));
 
 			if (SvTYPE(rv) == SVt_PVAV) 
 				amf3_format_array(io, (AV*) rv);
@@ -1646,7 +1641,7 @@ inline SV * amf3_parse_one(struct io_struct * io){
 	SV * retvalue;
 	marker = read_marker(io);
 	if (marker >= 0 && marker < (sizeof amf3_parse_subs)/sizeof( amf3_parse_subs[0])){
-		//fprintf( stderr, "marker = %d\n", marker);
+		//PerlIO_printf( PerlIO_stderr(), "marker = %d\n", marker);
 		return (amf3_parse_subs[marker])(io);
 	}
 	else {
@@ -1704,7 +1699,7 @@ SV * deep_clone(SV * value){
 	if (SvROK(value)){
 		SV * rv = (SV*) SvRV(value);
 		SV * copy;
-		//fprintf( stderr, "type is %s\n", SVt_string(rv));
+		//PerlIO_printf( PerlIO_stderr(), "type is %s\n", SVt_string(rv));
 		if (SvTYPE(rv) == SVt_PVHV) {
 			copy = newRV_noinc((SV*)deep_hash((HV*) rv));
 		}
@@ -1736,7 +1731,7 @@ SV * deep_clone(SV * value){
 	}
 }
 
-MODULE = Storable::AMF PACKAGE = Storable::AMF0		
+MODULE = Storable::AMF0 PACKAGE = Storable::AMF0		
 
 void 
 dclone(SV * data)
@@ -1769,22 +1764,27 @@ thaw(data)
 			if (error_code = setjmp(io_record.target_error)){
 				//croak("Failed parse string. unspected EOF");
 				//TODO: ERROR CODE HANDLE
+                sv_setiv(ERRSV, error_code);
+                sv_setpvf(ERRSV, "Error(code %d) at parse AMF0", error_code);
+                SvIOK_on(ERRSV);
+
 			}
 			else {
 				retvalue = (SV*) (parse_one(&io_record));
 				retvalue = sv_2mortal(retvalue);
 				if (io_record.pos!=io_record.end){
-					warn("parse finished too early (AMF0) ");
-                    // TODO: error code
+                    sv_setiv(ERRSV, ERR_EOF);
+                    sv_setpvf(ERRSV, "EOF at parse AMF0", ERR_EOF);
+                    SvIOK_on(ERRSV);
 				}
                 else {
+                    sv_setsv(ERRSV, &PL_sv_undef);
                     XPUSHs(retvalue);
                 }
 			}
-			//retvalue = sv_2mortal(newSVnv(1.0));
 		}
 		else {
-			//TODO: error handle
+            croak("USAGE Storable::AMF0::thaw( $amf0). First arg must be string");
 		}
 
 
@@ -1805,11 +1805,12 @@ void freeze(data)
 			format_one(&io_record, data);
             retvalue = sv_2mortal(io_buffer(&io_record));
             XPUSHs(retvalue);
+            sv_setsv(ERRSV, &PL_sv_undef);
 		}
 		else{
-            char errorbuf[50];
-            sprintf(errorbuf, "failed format to AMF0(code %d)", error_code);
-            warn(errorbuf);
+            sv_setiv(ERRSV, error_code);
+            sv_setpvf(ERRSV, "failed format to AMF0(code %d)", error_code);
+            SvIOK_on(ERRSV);
 		}
 
 
@@ -1831,27 +1832,27 @@ thaw(data)
 		if (SvPOK(data)){
 			int error_code;
 			if (error_code = setjmp(io_record.target_error)){
-				char errbuf[50];
-				//croak("Failed parse string. unspected EOF");
-				//TODO: ERROR CODE HANDLE
-				sprintf(errbuf, "AMF3 parse failed. (Code %d)", error_code);
-				warn(errbuf);
+                sv_setiv(ERRSV, error_code);
+                sv_setpvf(ERRSV, "AMF3 parse failed. (Code %d)", error_code);
+                SvIOK_on(ERRSV);
 			}
 			else {
 				retvalue = (SV*) (amf3_parse_one(&io_record));
                 sv_2mortal(retvalue);
 				if (io_record.pos!=io_record.end){
-					warn("parse finished too early");
+                    sv_setiv(ERRSV, ERR_EOF);
+                    sv_setpvf(ERRSV, "AMF3 thaw  failed. EOF at parse (Code %d)", ERR_EOF);
+                    SvIOK_on(ERRSV);
                     
 				}
                 else {
+                    sv_setsv(ERRSV, &PL_sv_undef);
 		    		XPUSHs(retvalue);
                 };
 	    	}
-			//retvalue = sv_2mortal(newSVnv(1.0));
 		}
 		else {
-			//TODO: error handle
+            croak("USAGE Storable::AMF3::thaw( $amf0). First arg must be string");
 		}
 
 void freeze(data)
@@ -1870,13 +1871,14 @@ void freeze(data)
             sv_2mortal(io_self);
             retvalue = sv_2mortal(io_buffer(&io_record));
             XPUSHs(retvalue);
+            sv_setsv(ERRSV, &PL_sv_undef);
 		}
 		else {
-			char errbuf[50];
 			//croak("Failed parse string. unspected EOF");
 			//TODO: ERROR CODE HANDLE
-			sprintf(errbuf, "AMF3 format  failed. (Code %d)", error_code);
-			warn(errbuf);
+            sv_setiv(ERRSV, error_code);
+            sv_setpvf(ERRSV, "AMF3 format  failed. (Code %d)", error_code);
+            SvIOK_on(ERRSV);
 		}
 
 

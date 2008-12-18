@@ -105,5 +105,17 @@ Revision history for Perl extension Storable::AMF.
 	- added Carp for store, nstore, etc.
 
 0.2700 (  746) 2008-12-12 18:56:23 +0300 
-	- added aux function: ref_destroy ref_lost_memory
+	- added aux function: ref_destroy ref_lost_memory for AMF0
+
+0.2800 (  749) 2008-12-13 18:10:47 +0300 
+	- Solaris: delete optimize for Solaris
+
+0.2900 (  788) 2008-12-18 12:44:07 +0300 
+	- fprintf moved to PerlIO abstraction layer
+	- added documentation for ref_lost_memory ref_destroy.
+    - some fixes to documentation
+0.3000 (  797) 2008-12-18 15:09:08 +0300 
+	- remove magic marker numbers. 
+	- change error handle: set  setting error number and description
+	- checks for error reporting. test cleanup 
 

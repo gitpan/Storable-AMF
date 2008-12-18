@@ -2,7 +2,7 @@ use lib 't';
 use strict;
 use warnings;
 use ExtUtils::testlib;
-use Storable::AMF;
+use Storable::AMF0;
 use Test::More tests => 16;
 
 use GrianUtils;
@@ -23,7 +23,7 @@ sub get_file{
 }
 
 sub serialize{
-	my @values = Storable::AMF::freeze($_[0]);
+	my @values = Storable::AMF0::freeze($_[0]);
 	if (@values > 1) {
 		print STDERR "many returned values\n";
 	}
@@ -42,7 +42,7 @@ sub MyDump{
 my $obj = Test::Bless->new();
 sub copy_test{
 	my $val = shift;
-	my $copy = Storable::AMF::dclone($val);
+	my $copy = Storable::AMF0::dclone($val);
 	is_deeply($copy, $val);
 }
 #print STDERR Data::Dumper->Dump([$bank]), MyDump($bank), "\n";

@@ -3,7 +3,7 @@ package Storable::AMF3;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.27';
+our $VERSION = '0.30';
 use subs qw(freeze thaw);
 require Exporter;
 use Carp qw(carp);
@@ -15,7 +15,8 @@ our @ISA = qw(Exporter);
 # Do not simply export all your public functions/methods/constants.
 
 our %EXPORT_TAGS = ( 'all' => [ qw(
-	freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store
+	freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store 
+    ref_destroy ref_lost_memory
 ) ] );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
@@ -101,7 +102,9 @@ sub lock_nstore{
 require XSLoader;
 XSLoader::load('Storable::AMF', $VERSION);
 no warnings;
-*Storable::AMF3::dclone = *Storable::AMF0::dclone;
+no strict 'refs';
+#*Storable::AMF3::dclone = *Storable::AMF0::dclone;
+*{"Storable::AMF3::$_"} = *{"Storable::AMF0::$_"} for qw(dclone ref_lost_memory ref_destroy);
 
 # Preloaded methods go here.
 
@@ -189,6 +192,14 @@ And some cases faster then Storable( for me always)
 
 =item dclone $file
   --- Deep cloning data structure
+
+=item ref_destroy $obj
+  --- Deep decloning data structure
+  --- safely destroy cloned object or any object 
+
+=item ref_lost_memory $obj
+  --- test if object contain lost memory fragments inside.
+  (Example do { my $a = []; @$a=$a; $a})
 
 =back
 

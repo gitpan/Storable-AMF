@@ -8,7 +8,7 @@ use Data::Dumper;
 my @item ;
 @item= map {grep { $_!~m/\./ } GrianUtils->my_readdir("t/$_/") } qw( AMF0);
 
-my $total = @item*2;
+my $total = @item*4;
 eval "use Test::More tests=>$total;";
 warn $@ if $@;
 
@@ -42,8 +42,12 @@ TEST_LOOP: for my $item (@item){
         chop($a1);
         $a2.='\x01';
 
-		ok(! defined(thaw ($a1)), "fail of trunced ($item) $eval");
+        $@=undef;
+		ok(! defined(thaw ($a1)), "fail of trunked ($item) $eval");
+        ok($@, "has error for trunked".$eval);
+        $@= undef;
 		ok(! defined(thaw ($a2)), "fail of extra   ($item) $eval");
+        ok($@, "has error for extra ".$eval);
 
 	}
 }

@@ -1,7 +1,7 @@
 use lib 't';
 use strict;
 use warnings;
-use Storable::AMF qw(freeze thaw retrieve);
+use Storable::AMF0 qw(freeze thaw retrieve);
 use GrianUtils;
 use subs 'skip';
 

@@ -24,9 +24,9 @@ if ($ExtUtils::MakeMaker::VERSION < 6.48) {
 
 #print "This is ${ENDIAN}_ENDIAN machine\n";
 
-WriteMakefile(
+our %MyModule= (
     NAME              => 'Storable::AMF',
-    VERSION_FROM      => 'lib/Storable/AMF.pm', # finds $VERSION
+    VERSION_FROM      => 'lib/Storable/AMF0.pm', # finds $VERSION
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Storable/AMF.pm', # retrieve abstract from module
        AUTHOR         => 'Grishaev Anatoliy  <grian@cpan.org>') : ()),
@@ -39,4 +39,9 @@ WriteMakefile(
 	($ExtUtils::MakeMaker::VERSION >= 6.31 ? (LICENSE => 'perl') : ()),
 	%REQUIRE, 
 );
+use Config;
+
+delete $MyModule{OPTIMIZE} if $Config{osname}=~/solaris/;
+
+WriteMakefile(%MyModule);
 # -march=opteron -O3 -pipe -fomit-frame-pointer 
