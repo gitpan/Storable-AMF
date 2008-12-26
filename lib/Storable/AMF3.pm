@@ -3,7 +3,7 @@ package Storable::AMF3;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.30';
+our $VERSION = '0.32';
 use subs qw(freeze thaw);
 require Exporter;
 use Carp qw(carp);

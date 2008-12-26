@@ -65,6 +65,13 @@
 #endif
 #endif
 
+//Fucking perl porters 
+#ifdef MSWin32
+#undef setjmp
+#undef longjmp
+#define setjmp _setjmp
+#endif
+
 struct amf3_restore_point{
 	int offset_buffer;
 	int offset_object;
@@ -142,8 +149,8 @@ inline void io_require(struct io_struct *io, int len){
 
 inline void io_reserve(struct io_struct *io, int len){
 	if (io->end - io->pos< len){
-		int ipos = io->pos - io->ptr;
-		int buf_len;
+	    unsigned int ipos = io->pos - io->ptr;
+		unsigned int buf_len;
 
 		SvCUR_set(io->sv_buffer, ipos);
 		buf_len = SvLEN(io->sv_buffer);
@@ -161,7 +168,6 @@ inline void io_register_error(struct io_struct *io, int errtype){
 
 inline void io_in_init(struct io_struct * io, SV *io_self, SV* data, int amf3){
 	STRLEN io_len;
-	char * io_ptr;
 	io->ptr = SvPV(data, io_len);
 	io->end = io->ptr + SvCUR(data);
 	io->pos = io->ptr;
@@ -184,8 +190,8 @@ inline void io_out_init(struct io_struct *io, SV* io_self, int amf3){
 	SV *sbuffer;
 	SV *initsize;
 	SV *step;
-	int ibuf_size ;
-	int ibuf_step ;
+	unsigned int ibuf_size ;
+	unsigned int ibuf_step ;
 	sbuffer = newSVpvn("",0);
 	io->version = amf3;
 	if (1 ==1 ) {
@@ -275,10 +281,10 @@ inline char * SVt_string(SV * ref){
 }
 inline double read_double(struct io_struct *io);
 char read_marker(struct io_struct * io);
-int inline read_u8(struct io_struct * io);
-int inline read_u16(struct io_struct * io);
-int inline read_u32(struct io_struct * io);
-int inline read_u24(struct io_struct * io);
+inline int read_u8(struct io_struct * io);
+inline int read_u16(struct io_struct * io);
+inline int read_u32(struct io_struct * io);
+inline int read_u24(struct io_struct * io);
 
 
 #define MOVERFLOW(VALUE, MAXVALUE, PROC)\
@@ -467,11 +473,11 @@ inline void format_one(struct io_struct *io, SV * one){
 	}
 	else {
 		if (SvOK(one)){
-			if (SvNIOKp(one)){
-				format_number(io, one);
+			if (SvPOK(one)){
+				format_string(io, one);
 			}
 			else {
-				format_string(io, one);
+				format_number(io, one);
 			}
 		}
 		else {
@@ -532,19 +538,31 @@ inline void format_strict_array(struct io_struct *io, AV * one){
 	}
 }
 inline void format_object(struct io_struct *io, HV * one){
-	I32 key_len;
+	STRLEN key_len;
+    I32    key_len1;
 	HV *hv;
 	HE *he;
 	SV * value;
 	char * key_str;
 	hv = one;
-
-	hv_iterinit(hv);
-	while(value  = hv_iternextsv(hv, &key_str, &key_len)){
-		write_u16(io, key_len);
-		write_bytes(io, key_str, key_len);
-		format_one(io, value);
-	}
+    if (1) {
+        hv_iterinit(hv);
+        while(he =  hv_iternext(hv)){
+            key_str = HePV(he, key_len);
+            value   = HeVAL(he);
+            write_u16(io, key_len);
+            write_bytes(io, key_str, key_len);
+            format_one(io, value);
+        }
+    }
+    else {
+        hv_iterinit(hv);
+        while(value  = hv_iternextsv(hv, &key_str, &key_len1)){
+            write_u16(io, key_len1);
+            write_bytes(io, key_str, key_len1);
+            format_one(io, value);
+        }
+    }
 	write_u16(io, 0);
 	write_marker(io, MARKER0_OBJECT_END);
 }
@@ -764,7 +782,7 @@ inline int amf3_read_integer(struct io_struct *io){
 					value = value | ~(0x0fffffff);
 				}
 				else {
-					value;
+					// no return value;
 				}
 				io_move_forward(io, 4);
 			}
@@ -924,10 +942,9 @@ inline SV* parse_ecma_array(struct io_struct *io){
 				 (index < array_len)){
 				av_store(this_array, index, parse_one(io));
 				for(i=1; i<array_len; ++i){
-					TRACE(PerlIO_printf( PerlIO_stderr(), "%d ", i));
+					UV index;
 					int key_len= read_u16(io);
 					char *s = read_chars(io, key_len);
-					UV index;
 					if ((IS_NUMBER_IN_UV & grok_number(s, key_len, &index)) &&
 						 (index < array_len)){
 						//PerlIO_printf( PerlIO_stderr(), "  =%u, %s\n", index, s);
@@ -1581,14 +1598,14 @@ inline void amf3_format_one(struct io_struct *io, SV * one){
 	}
 	else {
 		if (SvOK(one)){
+            if (SvPOK(one)) {
+				amf3_format_string(io, one);
+            } else 
 			if (SvIOKp(one)){
 				amf3_format_integer(io, one);
 			}
 			else if (SvNOKp(one)){
 				amf3_format_double(io, one);
-			}
-			else {
-				amf3_format_string(io, one);
 			}
 		}
 		else {
@@ -1732,6 +1749,16 @@ SV * deep_clone(SV * value){
 }
 
 MODULE = Storable::AMF0 PACKAGE = Storable::AMF0		
+#~ void 
+#~ test()
+#~     INIT:
+#~         SV* retvalue;
+#~         int ret=0;
+#~         dJMPENV;
+#~     PPCODE:
+#~         JMPENV_PUSH(ret);
+#~         fprintf( stderr, "Hello World!!!\n");
+#~         //JMPENV_POP();
 
 void 
 dclone(SV * data)
@@ -1815,6 +1842,8 @@ void freeze(data)
 
 
 MODULE = Storable::AMF0		PACKAGE = Storable::AMF3		
+
+
 void
 thaw(data)
 	SV * data

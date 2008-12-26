@@ -5,6 +5,10 @@ use ExtUtils::MakeMaker;
 my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
 
 my $DEFINE = "-D${ENDIAN}_END";
+if ($Config{osname} eq 'MSWin32'){
+            $DEFINE.=" -DMSWin32";
+            system "perl", qw( -i bak -p -e), "s/^\s*inline\s*//", "AMF.xs";
+}
 our %REQUIRE = ( 
 	PREREQ_PM => {}, # e.g., Module::Name => 1.1
 	MIN_PERL_VERSION => 5.008000,
@@ -41,7 +45,9 @@ our %MyModule= (
 );
 use Config;
 
-delete $MyModule{OPTIMIZE} if $Config{osname}=~/solaris/;
+delete $MyModule{OPTIMIZE} if (
+      $Config{osname}=~/solaris/
+    or $Config{cc} eq 'cl');
 
 WriteMakefile(%MyModule);
 # -march=opteron -O3 -pipe -fomit-frame-pointer 

@@ -20,6 +20,7 @@ t/06-last-undef.t
 t/07-self_refs.t
 t/08-real-data.t
 t/09-aux-utility.t
+t/10-dual-var.t
 t/21-amf3-simple.t
 t/22-one.t
 t/23-strings.t
@@ -33,7 +34,6 @@ t/41-negative-freeze-amf0.t
 t/42-negative-freeze-amf3.t
 t/43-neg-parse_amf0.t
 t/44-neg-parse_amf3.t
-
 t/AMF0/01-array-0-foo-bar-baz
 t/AMF0/01-xml-dup.xml
 t/AMF0/01-xml-empty.xml

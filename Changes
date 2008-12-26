@@ -119,3 +119,9 @@ Revision history for Perl extension Storable::AMF.
 	- change error handle: set  setting error number and description
 	- checks for error reporting. test cleanup 
 
+0.3100 (  843) 2008-12-26 12:11:33 +0300 
+	- Added dualvar behave. Document Regexp, io, error reporting
+
+0.3200 (  848) 2008-12-26 15:14:23 +0300 
+	- First port to MSWin32
+

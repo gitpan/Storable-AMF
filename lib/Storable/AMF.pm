@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Fcntl qw(:flock);
 use Storable::AMF0;
-our $VERSION = '0.30';
+our $VERSION = '0.32';
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -80,6 +80,17 @@ And some cases faster then Storable( for me always)
   None by default.
 
 =cut
+=head1 MOTIVATION
+
+There are several modules for work with AMF data and packets written in perl, but them are lack a speed.
+This module writen in C for speed. Also this package allow freeze and thaw AMF3 data which is nobody do.
+
+=cut
+=head1 ERROR REPORTING
+    In case of errors functions freeze and thaw returns undef and set $@ error description. 
+    (Error description at the moment is criptic, forgive me..)
+
+=cut
 =head1 FUNCTIONS
 =cut
 
@@ -124,24 +135,24 @@ And some cases faster then Storable( for me always)
 
 =head1 NOTICE
 
-  Storable::AMF is currently is alpha development stage. 
+  Storable::AMF is currently is at development stage. 
 
 =cut
 
 =head1 LIMITATION
 
 At current moment and with restriction of AMF0/AMF3 format referrences to scalar are not serialized,
-and BigEndian machines are not supported, 
 and can't/ may not serialize tied variables.
+And dualvars (See Scalar::Util) are serialized as string value.
+Freezing CODEREF, IO, Regexp, REF, GLOB, SCALAR referenses restricted.
 
 =head1 TODO
 
-Parse date and XML documents in AMF3 format.
 Add some options to functions.
-Add some tests for date/ xml/ xml-doc.
-Implents destroy object -- to destroy self-refernses objects.
-Implents objects_leaks -- to test if object referenses self.
-Add more complex tests.
+
+Document freezing and thawing XMLDocument, XML, Date
+May be add some IO and packet manipulated function (SEE AMF0/AMF3 at Adobe)
+
 
 =head1 SEE ALSO
 

@@ -1,11 +1,10 @@
 	- In function amf3_write_integer (	  think about warning of Integer overflow )  rewrite needed
 	- fix read_s*( rename )
 	- realizate readObject, CanRead, 
-    - more documentation on thaw ARRAY, XML
     - add limit memory behavior (Error message when no mem)
-    - Document freeze of CODEREF, REF, SCALAR, GLOB, IO, Regexp
     - Add test for store function
     - Add experimental store of REFSCALAR
     - Replace setjmp for JMPENV
     - properly destroy partially constructed objects in case of errors
     - Add descriptive error messages.
+    - more documentation on thaw ARRAY, XML
