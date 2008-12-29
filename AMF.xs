@@ -18,6 +18,7 @@
 #define ERR_BAD_XML_REF 13
 #define ERR_BAD_BYTEARRAY_REF 14
 #define ERR_EXTRA_BYTE 15
+//#define ERR_UNIMPLEMENTED 16
 
 #define AMF0 0
 #define AMF3 3
@@ -53,7 +54,7 @@
 #define MARKER3_AMF_PLUS	  '\x11'
 
 #define STR_EMPTY    '\x01'
-#define TRACE(ELEM) PerlIO_printf( PerlIO_stderr(), "%s\n", (ELEM));
+#define TRACE(ELEM) PerlIO_printf( PerlIO_stderr(), ELEM);
 #undef TRACE
 #define TRACE(ELEM) ;
 
@@ -70,8 +71,10 @@
 #undef setjmp
 #undef longjmp
 #define setjmp _setjmp
+#define inline
 #endif
 
+//#define TRACE0
 struct amf3_restore_point{
 	int offset_buffer;
 	int offset_object;
@@ -105,6 +108,7 @@ struct io_struct{
 	int version;
 };
 
+inline void io_register_error(struct io_struct *io, int );
 inline int io_position(struct io_struct *io){
 	return io->pos-io->ptr;
 }
@@ -127,8 +131,8 @@ inline void io_restorepoint(struct io_struct *io, struct amf3_restore_point *p){
 	while(av_len(io->arr_trait) > p->offset_trait){
 		sv_2mortal(av_pop(io->arr_trait));
 	}
-	while(av_len(io->arr_object) > p->offset_object){
-		sv_2mortal(av_pop(io->arr_object));
+	while(av_len(io->arr_string) > p->offset_string){
+		sv_2mortal(av_pop(io->arr_string));
 	}
 }
 
@@ -143,7 +147,7 @@ inline void io_move_forward(struct io_struct *io, int len){
 
 inline void io_require(struct io_struct *io, int len){
     if (io->end - io->pos < len){
-		longjmp(io->target_error, ERR_EOF);
+		io_register_error(io, ERR_EOF);
 	}
 }
 
@@ -175,7 +179,7 @@ inline void io_in_init(struct io_struct * io, SV *io_self, SV* data, int amf3){
 	io->refs    = (AV*) SvRV(io_self);
 	io->status  = 'r';
 	io->version = amf3;
-	if (amf3) {
+	if (amf3 == AMF3) {
 		io->arr_string = newAV();
 		io->arr_trait = newAV();
 		io->arr_object = newAV();
@@ -183,8 +187,45 @@ inline void io_in_init(struct io_struct * io, SV *io_self, SV* data, int amf3){
 		sv_2mortal((SV*) io->arr_trait);
 		sv_2mortal((SV*) io->arr_object);
 	}
-
-
+}
+void io_in_destroy(struct io_struct * io, AV *a){
+    int i;
+    SV **ref_item;
+    int alen;
+    SV *item;
+    if (a) {
+        alen = av_len(a);
+        for(i = 0; i<= alen; ++i){
+            ref_item = av_fetch(a,i,0);
+            if (ref_item){
+                if (SvROK(*ref_item)){
+                    item = SvRV(*ref_item);
+                    if (SvTYPE(item) == SVt_PVAV){
+                       av_clear((AV*) item);
+                    }
+                    else if (SvTYPE(item) == SVt_PVHV){
+                        HV * h = (HV*) item;
+                        hv_clear(h);
+                    }
+                }
+            }
+        }
+    }
+    else {
+        if (io->version == AMF0){
+            io_in_destroy(io, io->refs);
+        }
+        else if (io->version == AMF3) {
+//            fprintf( stderr, "%p %p %p %p\n", io->refs, io->arr_object, io->arr_trait, io->arr_string);
+            io_in_destroy(io, io->refs);
+            io_in_destroy(io, io->arr_object);
+            io_in_destroy(io, io->arr_trait); // May be not needed
+            io_in_destroy(io, io->arr_string);
+        }
+        else {
+            croak("bad version at destroy");
+        }
+    }
 }
 inline void io_out_init(struct io_struct *io, SV* io_self, int amf3){
 	SV *sbuffer;
@@ -318,12 +359,12 @@ inline void write_double(struct io_struct *io, double value){
 }
 inline void write_marker(struct io_struct * io, char value)	{
 	const int step = 1;
-	union {
+	union vvv{
 		signed   int iv;
 		unsigned int uv;
 		double nv;
 		char   c[8];
-	} v;
+	} ;
 	io_reserve(io, 1);
 	io->pos[0]= value;
 	io->pos+=step;
@@ -373,7 +414,7 @@ inline void write_u16(struct io_struct * io, unsigned int value){
 		char   c[8];
 	} v;
 	io_reserve(io,step);
-	MOVERFLOW(value,65535 , "write_u16");
+	MOVERFLOW(value, 65535 , "write_u16");
 	v.uv = value;
 	io->pos[0] = v.c[GET_NBYTE(step, 0, value)];
 	io->pos[1] = v.c[GET_NBYTE(step, 1, value)];
@@ -495,14 +536,8 @@ inline void format_string(struct io_struct *io, SV * one){
 	
 	// TODO: process long string
 	if (SvPOK(one)){
-		// 
-//#~ 		if (!SvUTF8(one)) {
-//#~ 			sv_utf8_upgrade(one);
-//#~ 		};
 		STRLEN str_len;
 		char * pv;
-		//pv = SvPV_nolen(one);
-		//str_len = SvCUR(one);
 		pv = SvPV(one, str_len);
 		if (str_len > 65500){
 			write_marker(io, MARKER0_LONG_STRING);
@@ -600,9 +635,9 @@ inline SV* parse_recordset(struct io_struct *io);
 inline SV* parse_xml_document(struct io_struct *io);
 inline SV* parse_typed_object(struct io_struct *io);
 
-void swap_bytes(void *data_ptr, int len){
-	return ;	
-}
+// void swap_bytes(void *data_ptr, int len){
+// 	return ;	
+// }
 void write_double(struct io_struct *io, double value);
 void write_marker(struct io_struct * io, char value);
 void write_u8(struct io_struct * io, unsigned int value);
@@ -614,7 +649,6 @@ void write_u24(struct io_struct * io, unsigned int value);
 inline double read_double(struct io_struct *io){
 	const int step = sizeof(double);
 	double a;
-	int i;
 	char * ptr_in  = io->pos;
 	char * ptr_out = (char *) &a; 
 	io_require(io, step);
@@ -755,18 +789,14 @@ inline void amf3_write_integer(struct io_struct *io, IV ivalue){
 	}
 	else {
 		// Attention hack!!!
-		char buf[50];
 		io->pos[-1] = MARKER3_DOUBLE;
 		write_double(io, ivalue);
 		return; //  TODO: Rewrite needed
-//#~ 		sprintf(buf, "AMF3 format int: too big number(%d)", value);
-//#~ 		warn(buf);
-//#~ 		io_register_error(io, ERR_OVERFLOW);
 	}
 	return;
 }
 
-inline int amf3_read_integer(struct io_struct *io){
+int amf3_read_integer(struct io_struct *io){
 	I32 value;
 	io_require(io, 1);
 	if ((U8) io->pos[0] > 0x7f) {
@@ -853,7 +883,6 @@ inline SV* parse_movieclip(struct io_struct *io){
 }
 inline SV* parse_null(struct io_struct *io){
 	SV* RETVALUE;
-	HV* hv;
 	RETVALUE = newSV(0);
 	return RETVALUE;
 }
@@ -871,7 +900,7 @@ inline SV* parse_reference(struct io_struct *io){
 	object_offset = read_u16(io);
 	ar_refs = (AV *) io->refs;
 	if (object_offset > av_len(ar_refs)){
-		longjmp(io->target_error, ERR_REF);
+		io_register_error(io, ERR_REF);
 	}
 	else {
 		RETVALUE = *av_fetch(ar_refs, object_offset, 0);
@@ -883,7 +912,6 @@ inline SV* parse_reference(struct io_struct *io){
 }
 
 inline SV* parse_object_end(struct io_struct *io){
-	SV* RETVALUE;
 	read_marker(io);
 	return 0;
 }
@@ -930,29 +958,32 @@ inline SV* parse_ecma_array(struct io_struct *io){
 
 	av_refs_len = av_len(refs);
 	av_push(refs, newRV_noinc((SV*) this_array));
-
-	TRACE(PerlIO_printf( PerlIO_stderr(), "Start parse array %d\n", array_len));
-
+    
+    #ifdef TRACEA
+	fprintf( stderr, "Start parse array %d\n", array_len);
+    fprintf( stderr, "position %d\n", io_position(io));
+    #endif
 	if (0 < array_len){
 		key_len = read_u16(io);
 		key_ptr = read_chars(io, key_len);
 		if (key_len == 1) {
-			UV index;
+			IV index;
 			if ((IS_NUMBER_IN_UV & grok_number(key_ptr, key_len, &index)) &&
 				 (index < array_len)){
 				av_store(this_array, index, parse_one(io));
 				for(i=1; i<array_len; ++i){
-					UV index;
+					IV index;
 					int key_len= read_u16(io);
 					char *s = read_chars(io, key_len);
+
+                    #ifdef TRACEA
+                    fprintf( stderr, "index =%d, position %d\n", i, io_position(io));
+                    #endif
 					if ((IS_NUMBER_IN_UV & grok_number(s, key_len, &index)) &&
 						 (index < array_len)){
-						//PerlIO_printf( PerlIO_stderr(), "  =%u, %s\n", index, s);
 						av_store(this_array, index, parse_one(io));
-						TRACE(PerlIO_printf( PerlIO_stderr(), "(index=%d arr_len=%d)", index, array_len));
 					}
 					else {
-						//PerlIO_printf( PerlIO_stderr() , "failed to parse\n");
 						io_move_backward(io, key_len + 2);
 						break;
 
@@ -968,16 +999,21 @@ inline SV* parse_ecma_array(struct io_struct *io){
 	}
 	
 	
-	TRACE(PerlIO_printf ( PerlIO_stderr(), "last %d ", i ));
+    #ifdef TRACEA
+	fprintf( stderr, "almost at end parse array %d\n", array_len);
+    fprintf( stderr, "position %d\n", io_position(io));
+    #endif
 	last_len = read_u16(io);
 	last_marker = read_marker(io);
+    #ifdef TRACEA
+	fprintf( stderr, "at end parse array %d\n", array_len);
+    fprintf( stderr, "position %d\n", io_position(io));
+    #endif
 	if ((last_len == 0) && (last_marker == MARKER0_OBJECT_END)) {
-		TRACE(PerlIO_printf( PerlIO_stderr(), "Parsed successfully\n"));
 		RETVALUE = newRV_inc((SV*) this_array);
 	}
 	else{
 		// Need rollback referenses 
-		TRACE(PerlIO_printf( PerlIO_stderr(), "Rollback to object  successfully\n"));
 		int i;
 		for( i = av_len(refs) - av_refs_len; i>0 ;--i){
 			SV * ref = av_pop(refs);
@@ -998,7 +1034,8 @@ inline SV* parse_date(struct io_struct *io){
 	RETVALUE = newSVnv(time);
 	//PerlIO_printf( PerlIO_stderr() , "date %g\n", time);
 	av_push(io->refs, RETVALUE);
-	SvREFCNT_inc_simple_void_NN(RETVALUE);
+	//SvREFCNT_inc_simple_void_NN(RETVALUE);
+	SvREFCNT_inc(RETVALUE);
 	return RETVALUE;
 }
 
@@ -1014,14 +1051,14 @@ inline SV* parse_long_string(struct io_struct *io){
 
 inline SV* parse_unsupported(struct io_struct *io){
 	SV* RETVALUE;
-	io->message = "Not implemented: parse_unsupported";
-	RETVALUE = newSV(0);
+    io_register_error(io, ERR_UNIMPLEMENTED);
+	RETVALUE = 0;
 	return RETVALUE;
 }
 inline SV* parse_recordset(struct io_struct *io){
 	SV* RETVALUE;
-	io->message = "Not implemented: parse_recordset";
-	RETVALUE = newSV(0);
+    RETVALUE = 0;
+    io_register_error(io, ERR_UNIMPLEMENTED);
 	return RETVALUE;
 }
 inline SV* parse_xml_document(struct io_struct *io){
@@ -1106,7 +1143,6 @@ inline char * amf3_read_string( struct io_struct *io, int ref_len, STRLEN *str_l
 		if (ref_sv) {
 			char* pstr;
 			pstr = SvPV(*ref_sv, *str_len);
-			//PerlIO_printf( PerlIO_stderr(), "C(%s, %d, %d)\n", pstr, *str_len, ref_len);
 			return pstr; 
 		}
 		else {
@@ -1159,8 +1195,7 @@ SV * amf3_parse_date (struct io_struct *io){
 
 inline void amf3_store_object(struct io_struct *io, SV * item){
 	//PerlIO_printf( PerlIO_stderr(), "store ref %p %d %p\n", io->arr_object, io->rc_object, item);
-	av_push(io->arr_object, newRV(item));
-	io->rc_object++;
+	av_push(io->arr_object, newRV_noinc(item));
 }
 
 SV * amf3_parse_array (struct io_struct *io){
@@ -1180,12 +1215,11 @@ SV * amf3_parse_array (struct io_struct *io){
         UV item_index;
 
 
-		TRACE("Parse first array");
 		AV * array;
 		str_len = amf3_read_integer(io);
-		if (str_len !=1) {
-			io_savepoint(io, &rec_point);		
-		};
+		old_vlen = str_len;
+
+        io_savepoint(io, &rec_point);		
 
         // Пытаемся востановить как массив 
         // Считаем что это массив если первый индекс от 0 до 9 и все индексы числовые
@@ -1193,20 +1227,24 @@ SV * amf3_parse_array (struct io_struct *io){
 		array=newAV();
 		item = (SV *) array;
 		amf3_store_object(io, item);
+
 		
 		recover = FALSE;
-		old_vlen = str_len;
         if (str_len !=1){
             pstr = amf3_read_string(io, str_len, &plen);
-            item_value= amf3_parse_one(io);
             if (IS_NUMBER_IN_UV & grok_number(pstr, plen, &item_index) && item_index< 10){
+
+                item_value= amf3_parse_one(io);
                 av_store(array, item_index, item_value);
+
                 str_len = amf3_read_integer(io);
                 while(str_len != 1){
                     pstr = amf3_read_string(io, str_len, &plen);
-                    item_value= amf3_parse_one(io);
                     if (IS_NUMBER_IN_UV & grok_number(pstr, plen, &item_index)){
+
+                        item_value= amf3_parse_one(io);
                         av_store(array, item_index, item_value);
+                        
                         str_len = amf3_read_integer(io);
                     }
                     else {
@@ -1224,21 +1262,23 @@ SV * amf3_parse_array (struct io_struct *io){
 		
 		if (!recover) {
 			int i;
-			for(i=0; i< len; ++i){
-				av_store(array, i, amf3_parse_one(io));
+            for(i=0; i< len; ++i){
+                av_store(array, i, amf3_parse_one(io));
 			};
+            RETVALUE = newRV_inc(item);
 		}
 		else {
             //востанавливаем как хэш
-			HV * hv = newHV();
-			SV * sv;
+			HV * hv;;
 			char *pstr;
 			STRLEN plen;
 			char buf[2+2*sizeof(int)];
 			int i;
 
 			io_restorepoint(io, &rec_point);	
+
 			str_len = old_vlen;
+            hv   = newHV();
 			item = (SV *) hv;
 			amf3_store_object(io, item);
 			while(str_len != 1){
@@ -1253,9 +1293,8 @@ SV * amf3_parse_array (struct io_struct *io){
 				sprintf(buf, "%d", i);
 				hv_store(hv, buf, strlen(buf), amf3_parse_one(io), 0);
 			}
-
+            RETVALUE = newRV_inc(item);
 		}
-		RETVALUE = newRV_noinc(item);
 	}
 	else {
 		SV ** value = av_fetch(io->arr_object, ref_len>>1, 0);	
@@ -1277,19 +1316,21 @@ struct amf3_trait_struct{
 SV * amf3_parse_object (struct io_struct *io){
 	SV * RETVALUE;
 	int obj_ref = amf3_read_integer(io);
+    #ifdef TRACE0
+    fprintf(stderr, "obj_ref = %d\n", obj_ref);
+    #endif
 	if (obj_ref & 1) {// not a ref object
 		AV * trait;
 		int sealed;
 		bool dynamic;
-		HV * stash;
 		SV * class_name_sv;
 		//char * class_name;
 		//STRLEN class_name_len;
 		HV *one;
 		int i;
 
-		TRACE("Parse first object");
 		if (!(obj_ref & 2)){// not trait ref
+            // fprintf( stderr, "Undo 0 %d\n", 7&obj_ref);
 			SV** trait_item	= av_fetch(io->arr_trait, obj_ref>>2, 0);
 			if (! trait_item) {
 				io_register_error(io, ERR_BAD_TRAIT_REF);
@@ -1302,67 +1343,84 @@ SV * amf3_parse_object (struct io_struct *io){
 		}
 		else if ( !(obj_ref & 4)) {	
 			int i;
-			trait = newAV();
-			av_push(io->arr_trait, newRV_noinc((SV *) trait));
-			sealed  = obj_ref >>4;
-			dynamic = obj_ref & 8;
-			
-			class_name_sv = amf3_parse_string(io);
-			//class_name = SvPV(class_name_sv, class_name_len);
-			
-			//PerlIO_printf( PerlIO_stderr(), "A(%d, %d, %d, %s)\n", sealed, dynamic, class_name_len, class_name);
-			av_push(trait, newSViv(sealed));
-			av_push(trait, newSViv(dynamic));
-			av_push(trait, newSViv(0)); // external processing
-			av_push(trait, class_name_sv);
-			
-			for(i =0; i<sealed; ++i){
-				SV * prop_name;
-				//////STRLEN pprop_len;
-				//////char * pprop_name;
-				//int byte;
+            // fprintf( stderr, "Undo 1 %d\n", 7&obj_ref);
+            if (0){
+                sealed =0;
+                dynamic = 1;
+                class_name_sv = sv_2mortal(newSVpvn("",0));
+                io_set_position(io, 8);
+                sv_2mortal((SV*)(trait =  newAV()));
+            }
+            else{
+                trait = newAV();
+                av_push(io->arr_trait, newRV_noinc((SV *) trait));
+                sealed  = obj_ref >>4;
+                dynamic = obj_ref & 8;
+                //fprintf( stderr, "Undo 1.0 %d\n", 7&obj_ref);
+                class_name_sv = amf3_parse_string(io);
+                //class_name = SvPV(class_name_sv, class_name_len);
+                
+                //PerlIO_printf( PerlIO_stderr(), "A(%d, %d, %d, %s)\n", sealed, dynamic, class_name_len, class_name);
+                av_push(trait, newSViv(sealed));
+                av_push(trait, newSViv(dynamic));
+                av_push(trait, newSViv(0)); // external processing
+                av_push(trait, class_name_sv);
+               // fprintf( stderr, "Undo 1.1 %d\n", 7&obj_ref);
+                
+                for(i =0; i<sealed; ++i){
+                    SV * prop_name;
 
-				prop_name = amf3_parse_string(io);
-				av_push(trait, prop_name);
-			}			
+                    prop_name = amf3_parse_string(io);
+                    av_push(trait, prop_name);
+                }			
+                // fprintf( stderr, "Undo 1.2 %d position %d sealed %d\n", 7&obj_ref, io_position(io),  sealed);
+            }
 
 		}
+        else {
+            io_register_error(io, ERR_UNIMPLEMENTED);
+        }
 		one = newHV();
 		//av_push(io->arr_object, newRV_noinc((SV*)one));
 		amf3_store_object(io, (SV*)one);
-		RETVALUE = newRV_noinc((SV*) one);
-		if (SvCUR(class_name_sv)) {
-			sv_bless(RETVALUE, gv_stashsv(class_name_sv, GV_ADD));
-		}
 
 		for(i=0; i<sealed; ++i){
 			hv_store_ent( one, *av_fetch(trait, 4+i, 0), amf3_parse_one(io), 0);	
 		};
 
 		if (dynamic) {
-			SV *prop_name;
 			char *pstr;
 			STRLEN plen;
 			int varlen;
+            // fprintf( stderr, "Undo 3 %d %d\n", 7&obj_ref, io_position(io));
 			varlen = amf3_read_integer(io);
+            // fprintf( stderr, "Undo 3 %d %d\n", 7&obj_ref, io_position(io));
 			pstr = amf3_read_string(io, varlen, &plen);
+            // fprintf( stderr, "Undo 3 %d %d\n", 7&obj_ref, io_position(io));
 
-			while(plen != 0) { 
-		//		PerlIO_printf( PerlIO_stderr(), "B(%d, %s)\n", plen, pstr);
-				hv_store(one, pstr, plen, amf3_parse_one(io), 0);				
-				varlen = amf3_read_integer(io);
-				pstr = amf3_read_string(io, varlen, &plen);
-			}
-		}
+            while(plen != 0) { 
+                hv_store(one, pstr, plen, amf3_parse_one(io), 0);				
+                varlen = -1;
+                plen = -1;
+                // fprintf( stderr, "Before int\n");
+                varlen = amf3_read_integer(io);
+                // fprintf( stderr, "Before str\n");
+                pstr = amf3_read_string(io, varlen, &plen);
+                // fprintf( stderr, "after str\n");
+                }
+        }
+        // fprintf( stderr, "Undo 4 %d\n", 7&obj_ref);
+		RETVALUE = newRV_inc((SV*) one);
+  		if (SvCUR(class_name_sv)) {
+  			sv_bless(RETVALUE, gv_stashsv(class_name_sv, GV_ADD));
+  		}
 	}
 	else {
 		SV ** ref = av_fetch(io->arr_object, obj_ref>>1, 0);
-		TRACE("Parse refs");
 		if (ref) {
 			RETVALUE = newRV(SvRV(*ref));
 		}
 		else {
-			//PerlIO_printf (PerlIO_stderr(), "Bad object ref(array)\n");
 			io_register_error(io, ERR_BAD_TRAIT_REF);
 			RETVALUE = &PL_sv_undef;	
 		}
@@ -1470,9 +1528,9 @@ inline void amf3_format_reference(struct io_struct *io, SV *num){
 }
 
 inline void amf3_format_array(struct io_struct *io, AV * one){
-	int alen;
-	int i;
-	SV ** aitem;
+    int alen;
+    int i;
+    SV ** aitem;
 	write_marker(io, MARKER3_ARRAY);
 	alen = av_len(one)+1;
 	amf3_write_integer(io, 1 | (alen) <<1 );
@@ -1490,9 +1548,9 @@ inline void amf3_format_array(struct io_struct *io, AV * one){
 	}
 }
 inline void amf3_format_object(struct io_struct *io, HV * one){
-	int alen;
-	int i;
-	SV ** aitem;
+	// int alen;
+	// int i;
+	// SV ** aitem;
 	AV * trait;
 	SV ** rv_trait;
 	char *class_name;
@@ -1540,7 +1598,6 @@ inline void amf3_format_object(struct io_struct *io, HV * one){
 		
 	if (1){
 		HV *hv;
-		HE *he;
 		SV * value;
 		char * key_str;
 		I32 key_len;
@@ -1551,7 +1608,6 @@ inline void amf3_format_object(struct io_struct *io, HV * one){
 		while(value  = hv_iternextsv(hv, &key_str, &key_len)){
 			if (key_len){
 				amf3_write_string_pvn(io, key_str, key_len);
-				//warn("Empty keys are skiped");
 				amf3_format_one(io, value);
 			};
 		}
@@ -1653,32 +1709,26 @@ parse_sub amf3_parse_subs[] = {
 };
 
 inline SV * amf3_parse_one(struct io_struct * io){
-	char marker;
+	unsigned char marker;
 
-	SV * retvalue;
-	marker = read_marker(io);
-	if (marker >= 0 && marker < (sizeof amf3_parse_subs)/sizeof( amf3_parse_subs[0])){
+	marker = (unsigned char) read_marker(io);
+	if (marker < (sizeof amf3_parse_subs)/sizeof( amf3_parse_subs[0])){
 		//PerlIO_printf( PerlIO_stderr(), "marker = %d\n", marker);
 		return (amf3_parse_subs[marker])(io);
 	}
 	else {
-		char buf[50];
-		sprintf(buf, "Unknown AMF3 marker(%d)", marker);
-		warn(buf);
-		longjmp(io->target_error, ERR_MARKER);
+		io_register_error(io, ERR_MARKER);
 	}
 }
 inline SV * parse_one(struct io_struct * io){
-	char marker;
+	unsigned char marker;
 
-	SV * retvalue;
-	marker = read_marker(io);
-	if (marker >= 0 && marker < (sizeof parse_subs)/sizeof( parse_subs[0])){
+	marker = (unsigned char) read_marker(io);
+	if ( marker < (sizeof parse_subs)/sizeof( parse_subs[0])){
 		return (parse_subs[marker])(io);
 	}
 	else {
-		warn("Unknown AMF0 marker");
-		longjmp(io->target_error, ERR_MARKER);
+		io_register_error(io, ERR_MARKER);
 	}
 }
 SV * deep_clone(SV * value);
@@ -1765,8 +1815,6 @@ dclone(SV * data)
 	PROTOTYPE: $
 	INIT:
 		SV* retvalue;
-		SV* io_self;
-		struct io_struct io_record;
 	PPCODE:
 		retvalue = deep_clone(data);
 		sv_2mortal(retvalue);
@@ -1781,10 +1829,10 @@ thaw(data)
 		SV* io_self;
 		struct io_struct io_record;
 	PPCODE:
-		io_self = newRV((SV*)newAV());
+		io_self = newRV_noinc((SV*)newAV());
 		io_in_init(&io_record, io_self, data, AMF0);
-		sv_2mortal(SvRV(io_self));
 		sv_2mortal(io_self);
+
 
 		if (SvPOK(data)){
 			int error_code;
@@ -1794,6 +1842,7 @@ thaw(data)
                 sv_setiv(ERRSV, error_code);
                 sv_setpvf(ERRSV, "Error(code %d) at parse AMF0", error_code);
                 SvIOK_on(ERRSV);
+                io_in_destroy(&io_record, 0); // all obects
 
 			}
 			else {
@@ -1801,8 +1850,12 @@ thaw(data)
 				retvalue = sv_2mortal(retvalue);
 				if (io_record.pos!=io_record.end){
                     sv_setiv(ERRSV, ERR_EOF);
-                    sv_setpvf(ERRSV, "EOF at parse AMF0", ERR_EOF);
+                    sv_setpvf(ERRSV, "EOF at parse AMF0", ERR_EXTRA_BYTE);
                     SvIOK_on(ERRSV);
+                    #sv_dump(io_self);
+                    io_in_destroy(&io_record, 0); // all obects
+                    #sv_dump(io_self);
+
 				}
                 else {
                     sv_setsv(ERRSV, &PL_sv_undef);
@@ -1825,6 +1878,7 @@ void freeze(data)
 		struct io_struct io_record;
 		int error_code;
 	PPCODE:
+		//#io_self= newSVpvn("",0);
 		io_self= newSV(0);
 		sv_2mortal(io_self);
 		io_out_init(&io_record, 0, AMF0);
@@ -1853,9 +1907,8 @@ thaw(data)
 		SV* io_self;
 		struct io_struct io_record;
 	PPCODE:
-		io_self = newRV((SV*)newAV());
+		io_self = newRV_noinc((SV*)newAV());
 		io_in_init(&io_record, io_self, data, AMF3);
-		sv_2mortal(SvRV(io_self));
 		sv_2mortal(io_self);
 		
 		if (SvPOK(data)){
@@ -1864,6 +1917,8 @@ thaw(data)
                 sv_setiv(ERRSV, error_code);
                 sv_setpvf(ERRSV, "AMF3 parse failed. (Code %d)", error_code);
                 SvIOK_on(ERRSV);
+                io_in_destroy(&io_record, 0);
+
 			}
 			else {
 				retvalue = (SV*) (amf3_parse_one(&io_record));
@@ -1872,6 +1927,7 @@ thaw(data)
                     sv_setiv(ERRSV, ERR_EOF);
                     sv_setpvf(ERRSV, "AMF3 thaw  failed. EOF at parse (Code %d)", ERR_EOF);
                     SvIOK_on(ERRSV);
+                    io_in_destroy(&io_record, 0);
                     
 				}
                 else {

@@ -125,3 +125,27 @@ Revision history for Perl extension Storable::AMF.
 0.3200 (  848) 2008-12-26 15:14:23 +0300 
 	- First port to MSWin32
 
+0.3300 (  857) 2008-12-27 17:10:34 +0300 
+	- add memory leak test for positive AMF0
+	- add memory leak test for positive AMF3
+	- REF and SCALAR option added to test
+
+0.3400 (  860) 2008-12-28 20:29:19 +0300 
+	- add io_destroy  memleak test for AMF0, AMF3
+    - add memory leak test for negative AMF0
+
+0.3500 (  861) 2008-12-29 11:13:25 +0300 
+	- fixed memory leak positive AMF3
+    - add memory leak test for negative AMF3
+
+0.3600 (  863) 2008-12-29 14:18:27 +0300 
+	- fixed memory leak negative for AMF3
+	- replace  direct long_jmp with io_register_error
+
+0.3700 (  865) 2008-12-29 14:48:04 +0300 
+	- improve memleak tests
+
+0.3800 (  870) 2008-12-29 16:18:57 +0300 
+	- some fixes for port MSWin32
+	- fix some warns. Increase compiler warn.
+

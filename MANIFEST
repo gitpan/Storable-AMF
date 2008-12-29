@@ -378,4 +378,8 @@ t/41-negative-freeze-amf0.t
 t/42-negative-freeze-amf3.t
 t/43-neg-parse_amf0.t
 t/44-neg-parse_amf3.t
+t/46-mem-safe-AMF0.t
+t/47-mem-safe-AMF3.t
+t/48-mem-safe-neg-AMF0.t
+t/49-mem-safe-neg-AMF3.t
 META.yml                                 Module meta-data (added by MakeMaker)

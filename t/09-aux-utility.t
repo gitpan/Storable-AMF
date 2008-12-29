@@ -1,10 +1,22 @@
-use Test::More tests => 6;
 use lib 't';
 use ExtUtils::testlib;
 use Storable::AMF0 qw(ref_lost_memory ref_destroy);
 use Scalar::Util qw(refaddr);
+use GrianUtils;
 use strict;
+no warnings 'once';
+eval 'use Test::More tests => 6+6;';
 use warnings;
+no warnings 'once';
+our $msg;
+sub tt(&);
+sub tt(&){
+    my $sub = shift;
+    my $s = ref_mem_safe( $sub );
+    $msg = $s;
+    return ($s)if $s;
+    return undef;
+}
 
 my $a1 = [];
 ok(! ref_lost_memory([]));
@@ -40,6 +52,14 @@ for (1..20)
     $addr = refaddr $a3;
 }
 
+use GrianUtils qw(ref_mem_safe);
 
+ok(tt {}     , "a $msg " );
+ok(tt { {};} , "a $msg "  );
+ok(tt { [];} , "a $msg " );
+ok(tt { [{a=>1}, [123, qw(123)]];} , "a $msg " );
+ok(tt { my $a = { bbb=>123, adf=>[], }; } , "a $msg " );
+ok(! tt { my @a; @a=(\@a, \@a); 0} , "self ref $msg");
+#ok(tt { my $a = { bbb=>123, adf=>[], }; return [{a=>1}, [123, qw(123), $a], a=>$a];},  );
 
-
+no warnings;

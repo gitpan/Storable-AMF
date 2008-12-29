@@ -5,6 +5,11 @@ use Storable::AMF qw() ;
 use Carp qw/carp croak/;
 use Fcntl qw(:flock);
 use File::Spec;
+use Scalar::Util qw(refaddr reftype);
+use base 'Exporter';
+
+our (@EXPORT, @EXPORT_OK);
+@EXPORT_OK=qw(ref_mem_safe);
 
 sub hash_contain_only{
 	my $self = shift;
@@ -139,4 +144,64 @@ sub rel2abs{
 	return File::Spec->catfile($base, $rel_path);
 }
 
+sub _all_refs_addr{
+    my $c = shift;
+    while(@_){
+        my $item = shift;
+        
+        next unless refaddr $item;
+        next if $$c{refaddr $item};
+        #print refaddr $item, "\n";
+        $$c{refaddr $item} = 1;
+        if (reftype $item eq 'ARRAY'){
+            _all_refs_addr($c, @$item);
+
+#~             foreach (_all_refs_addr($c, @$item)){
+#~                 $$c{$_} = 1;
+#~             }
+        }
+        elsif (reftype $item eq 'HASH') {
+            _all_refs_addr($c, $_);
+            #@$c{map {_all_refs_addr($c, $_)} values %$item} = ();
+        }
+        elsif (reftype $item eq 'SCALAR') {            
+        }
+        elsif (reftype $item eq 'REF'){
+            _all_refs_addr($c, $$item)
+            #$$c{_all_refs_addr($c, $$item)} = 1;
+        }
+        else {
+            croak "Unsupported type ". reftype $item;
+        }
+    }
+    return keys %$c;
+}
+       use List::Util qw(max); 
+sub ref_mem_safe{
+    my $sub = shift;
+    my $count_to_execute = shift ||200;
+    my $count_to_be_ok   = shift ||50;
+    
+    my $nu = -1;
+    my @addresses;
+    my %addr;
+    my $old_max =0;
+    for my $round (1..$count_to_execute){
+        my @seq = &$sub();
+        #my $a   = {};
+        push @seq,(\my $b), [], {}, &$sub(),[],{},\my $a;
+        my $new_max = max ( _all_refs_addr( {}, @seq ,$a, ));
+            if ($old_max<$new_max){
+                $old_max = $new_max;
+                $nu = -1;
+            };
+#~             unless (grep {$_ == $addr} @addresses){
+#~                 push @addresses, $addr;
+#~                 $nu = -1;
+#~             };
+        ++$nu;
+        return $round if ($nu > $count_to_be_ok) ;
+    }
+    return 0;
+}
 1;

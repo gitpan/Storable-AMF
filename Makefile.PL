@@ -7,7 +7,7 @@ my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
 my $DEFINE = "-D${ENDIAN}_END";
 if ($Config{osname} eq 'MSWin32'){
             $DEFINE.=" -DMSWin32";
-            system "perl", qw( -i bak -p -e), "s/^\s*inline\s*//", "AMF.xs";
+            system "perl", qw( -ibak -p -e), "s/^\s*inline\s*//", "AMF.xs";
 }
 our %REQUIRE = ( 
 	PREREQ_PM => {}, # e.g., Module::Name => 1.1
@@ -48,6 +48,11 @@ use Config;
 delete $MyModule{OPTIMIZE} if (
       $Config{osname}=~/solaris/
     or $Config{cc} eq 'cl');
+if ($Config{cc} eq 'gcc'){
+    $MyModule{CCFLAGS} = '-Wextra -Wunused';
+    $MyModule{CCFLAGS} = '-Wunused-variable -Wunused-label -Wunused-function -Wuninitialized '
+#    -Wunreachable-code -Wunsafe-loop-optimizations';
+}
 
 WriteMakefile(%MyModule);
 # -march=opteron -O3 -pipe -fomit-frame-pointer 

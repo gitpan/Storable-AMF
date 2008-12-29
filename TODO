@@ -1,10 +1,9 @@
 	- In function amf3_write_integer (	  think about warning of Integer overflow )  rewrite needed
 	- fix read_s*( rename )
-	- realizate readObject, CanRead, 
+	- realize readObject, CanRead, 
     - add limit memory behavior (Error message when no mem)
     - Add test for store function
-    - Add experimental store of REFSCALAR
-    - Replace setjmp for JMPENV
-    - properly destroy partially constructed objects in case of errors
+    - Add experimental store of REF, SCALAR
     - Add descriptive error messages.
     - more documentation on thaw ARRAY, XML
+    - Impove testleak for strings
