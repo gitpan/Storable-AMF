@@ -59,7 +59,7 @@ ok(tt { {};} , "a $msg "  );
 ok(tt { [];} , "a $msg " );
 ok(tt { [{a=>1}, [123, qw(123)]];} , "a $msg " );
 ok(tt { my $a = { bbb=>123, adf=>[], }; } , "a $msg " );
-ok(! tt { my @a; @a=(\@a, \@a); 0} , "self ref $msg");
+ok(! tt { my @a; @a=(\@a, \@a, \(my $a='asdfa'), {}, ['asdfasd'], {asdf=>1}); 0} , "self ref $msg");
 #ok(tt { my $a = { bbb=>123, adf=>[], }; return [{a=>1}, [123, qw(123), $a], a=>$a];},  );
 
 no warnings;

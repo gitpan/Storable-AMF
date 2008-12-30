@@ -149,3 +149,7 @@ Revision history for Perl extension Storable::AMF.
 	- some fixes for port MSWin32
 	- fix some warns. Increase compiler warn.
 
+0.3900 (  876) 2008-12-30 11:28:29 +0300 
+	- fix warnings
+	- remove stupid say from test
+

@@ -229,25 +229,14 @@ void io_in_destroy(struct io_struct * io, AV *a){
 }
 inline void io_out_init(struct io_struct *io, SV* io_self, int amf3){
 	SV *sbuffer;
-	SV *initsize;
-	SV *step;
 	unsigned int ibuf_size ;
 	unsigned int ibuf_step ;
 	sbuffer = newSVpvn("",0);
 	io->version = amf3;
-	if (1 ==1 ) {
-		ibuf_size = 255;
-		ibuf_step = 512;
-	}
-	else {
-		ibuf_size = (int) SvIV(initsize);
-		ibuf_step = SvIV(step);
-	}
+    ibuf_size = 255;
+    ibuf_step = 512;
 	SvGROW(sbuffer, ibuf_size);
 	io->sv_buffer = sbuffer;
-	if (ibuf_step < sizeof(double) * 8) {
-		ibuf_step = sizeof(double) * 16;
-	}
 	if (amf3) {
 		
 		io->hv_string = newHV();
@@ -574,7 +563,6 @@ inline void format_strict_array(struct io_struct *io, AV * one){
 }
 inline void format_object(struct io_struct *io, HV * one){
 	STRLEN key_len;
-    I32    key_len1;
 	HV *hv;
 	HE *he;
 	SV * value;
@@ -590,14 +578,15 @@ inline void format_object(struct io_struct *io, HV * one){
             format_one(io, value);
         }
     }
-    else {
-        hv_iterinit(hv);
-        while(value  = hv_iternextsv(hv, &key_str, &key_len1)){
-            write_u16(io, key_len1);
-            write_bytes(io, key_str, key_len1);
-            format_one(io, value);
-        }
-    }
+// #~     else {
+// #~         I32    key_len1;
+// #~         hv_iterinit(hv);
+// #~         while(value  = hv_iternextsv(hv, &key_str, &key_len1)){
+// #~             write_u16(io, key_len1);
+// #~             write_bytes(io, key_str, key_len1);
+// #~             format_one(io, value);
+// #~         }
+// #~     }
 	write_u16(io, 0);
 	write_marker(io, MARKER0_OBJECT_END);
 }
@@ -871,7 +860,7 @@ inline SV * parse_object(struct io_struct * io){
 			value = parse_one(io);
 		}
 		
-		hv_store(obj, key, len_next, value, 0);
+		(void) hv_store(obj, key, len_next, value, 0);
 	}
 }
 
@@ -1050,16 +1039,10 @@ inline SV* parse_long_string(struct io_struct *io){
 }
 
 inline SV* parse_unsupported(struct io_struct *io){
-	SV* RETVALUE;
     io_register_error(io, ERR_UNIMPLEMENTED);
-	RETVALUE = 0;
-	return RETVALUE;
 }
 inline SV* parse_recordset(struct io_struct *io){
-	SV* RETVALUE;
-    RETVALUE = 0;
     io_register_error(io, ERR_UNIMPLEMENTED);
-	return RETVALUE;
 }
 inline SV* parse_xml_document(struct io_struct *io){
 	SV* RETVALUE;
@@ -1269,7 +1252,7 @@ SV * amf3_parse_array (struct io_struct *io){
 		}
 		else {
             //востанавливаем как хэш
-			HV * hv;;
+			HV * hv;
 			char *pstr;
 			STRLEN plen;
 			char buf[2+2*sizeof(int)];
@@ -1285,13 +1268,13 @@ SV * amf3_parse_array (struct io_struct *io){
 				SV *one;
 				pstr = amf3_read_string(io, str_len, &plen);
 				one = amf3_parse_one(io);
-				hv_store(hv, pstr, plen, one, 0);
+				(void) hv_store(hv, pstr, plen, one, 0);
 				str_len = amf3_read_integer(io);
 			
 			};
 			for(i=0; i<len;++i){
-				sprintf(buf, "%d", i);
-				hv_store(hv, buf, strlen(buf), amf3_parse_one(io), 0);
+				(void) sprintf(buf, "%d", i);
+				(void) hv_store(hv, buf, strlen(buf), amf3_parse_one(io), 0);
 			}
             RETVALUE = newRV_inc(item);
 		}
@@ -1385,7 +1368,7 @@ SV * amf3_parse_object (struct io_struct *io){
 		amf3_store_object(io, (SV*)one);
 
 		for(i=0; i<sealed; ++i){
-			hv_store_ent( one, *av_fetch(trait, 4+i, 0), amf3_parse_one(io), 0);	
+			(void) hv_store_ent( one, *av_fetch(trait, 4+i, 0), amf3_parse_one(io), 0);	
 		};
 
 		if (dynamic) {
@@ -1399,7 +1382,7 @@ SV * amf3_parse_object (struct io_struct *io){
             // fprintf( stderr, "Undo 3 %d %d\n", 7&obj_ref, io_position(io));
 
             while(plen != 0) { 
-                hv_store(one, pstr, plen, amf3_parse_one(io), 0);				
+                (void) hv_store(one, pstr, plen, amf3_parse_one(io), 0);				
                 varlen = -1;
                 plen = -1;
                 // fprintf( stderr, "Before int\n");
@@ -1506,7 +1489,7 @@ inline void amf3_write_string_pvn(struct io_struct *io, char *pstr, STRLEN plen)
 			//PerlIO_printf(PerlIO_stderr(), "FFF%d \n", (plen <<1) |1);
 			amf3_write_integer( io, (plen << 1)	| 1);
 			write_bytes(io, pstr, plen);
-			hv_store(rhv, pstr, plen, newSViv(io->rc_string), 0);
+			(void) hv_store(rhv, pstr, plen, newSViv(io->rc_string), 0);
 			io->rc_string++;
 		}
 		else {
@@ -1637,7 +1620,7 @@ inline void amf3_format_one(struct io_struct *io, SV * one){
 		}
 		else {
 			sv_setiv(*OK, io->rc_object);
-			hv_store(io->hv_object, (char *) (&rv), sizeof (rv), newSViv(io->rc_object), 0);
+			(void) hv_store(io->hv_object, (char *) (&rv), sizeof (rv), newSViv(io->rc_object), 0);
 			++io->rc_object;
 			//PerlIO_printf( PerlIO_stderr(),"new reference %d\n", SvIV(*OK));
 
@@ -1753,7 +1736,7 @@ HV * deep_hash(HV* value){
 	hv_iterinit(value);
 	while(key_value  = hv_iternextsv(value, &key_str, &key_len)){
 		copy_val = deep_clone(key_value);
-		hv_store(copy, key_str, key_len, copy_val, 0);
+		(void) hv_store(copy, key_str, key_len, copy_val, 0);
 	}
 	return copy;
 }

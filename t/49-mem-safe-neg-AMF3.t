@@ -31,7 +31,6 @@ for my $item (@item){
     push (@objs, $item), next if 1 or !ref_lost_memory($s);
 }
 @item = @objs;
-say "# ",join "\n# ", @objs;
 my $total = @item*2;
 eval "use Test::More tests=>$total;";
 warn $@ if $@;

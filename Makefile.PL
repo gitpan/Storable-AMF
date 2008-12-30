@@ -49,8 +49,8 @@ delete $MyModule{OPTIMIZE} if (
       $Config{osname}=~/solaris/
     or $Config{cc} eq 'cl');
 if ($Config{cc} eq 'gcc'){
-    $MyModule{CCFLAGS} = '-Wextra -Wunused';
-    $MyModule{CCFLAGS} = '-Wunused-variable -Wunused-label -Wunused-function -Wuninitialized '
+    $MyModule{CCFLAGS} = '-Wunused --warn-no-unused-parameter';
+    #$MyModule{CCFLAGS} = '-Wunused-variable -Wunused-label -Wunused-function -Wuninitialized -Wunused-value'
 #    -Wunreachable-code -Wunsafe-loop-optimizations';
 }
 
