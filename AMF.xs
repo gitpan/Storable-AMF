@@ -172,7 +172,8 @@ inline void io_register_error(struct io_struct *io, int errtype){
 
 inline void io_in_init(struct io_struct * io, SV *io_self, SV* data, int amf3){
 	STRLEN io_len;
-	io->ptr = SvPV(data, io_len);
+	io->ptr = SvPVX(data);
+    io_len  = SvLEN(data);
 	io->end = io->ptr + SvCUR(data);
 	io->pos = io->ptr;
 	io->message = "";
@@ -270,45 +271,45 @@ inline SV * io_buffer(struct io_struct *io){
 }
 	
 
-inline char * SVt_string(SV * ref){
-	char *type;
-	switch(SvTYPE(ref)){
-		case SVt_IV:
-			type = "Scalar IV";
-			break;
-		case SVt_NV:
-			type = "Scalar NV";
-			break;
-		case SVt_PV:
-			type = "Scalar pointer(PV)";
-			break;
-		case SVt_RV:
-			type = "Scalar reference";
-			break;
-		case SVt_PVAV:
-			type = "Array";
-			break;
-		case SVt_PVHV:
-			type = "Hash";
-			break;
-		case SVt_PVCV:
-			type = "Code";
-			break;
-		case SVt_PVGV:
-			type = "Glob (possible a file handler)";
-			break;
-		case SVt_PVMG:
-			type = "Blessed or Magical Scalar";
-			break;
-		default:
-			type = "Unknown";
-			break;
-	}
-	if (! ref ){
-		type = "null pointer";
-	}
-	return type;
-}
+// inline char * SVt_string(SV * ref){
+// 	char *type;
+// 	switch(SvTYPE(ref)){
+// 		case SVt_IV:
+// 			type = "Scalar IV";
+// 			break;
+// 		case SVt_NV:
+// 			type = "Scalar NV";
+// 			break;
+// 		case SVt_PV:
+// 			type = "Scalar pointer(PV)";
+// 			break;
+// 		case SVt_RV:
+// 			type = "Scalar reference";
+// 			break;
+// 		case SVt_PVAV:
+// 			type = "Array";
+// 			break;
+// 		case SVt_PVHV:
+// 			type = "Hash";
+// 			break;
+// 		case SVt_PVCV:
+// 			type = "Code";
+// 			break;
+// 		case SVt_PVGV:
+// 			type = "Glob (possible a file handler)";
+// 			break;
+// 		case SVt_PVMG:
+// 			type = "Blessed or Magical Scalar";
+// 			break;
+// 		default:
+// 			type = "Unknown";
+// 			break;
+// 	}
+// 	if (! ref ){
+// 		type = "null pointer";
+// 	}
+// 	return type;
+// }
 inline double read_double(struct io_struct *io);
 char read_marker(struct io_struct * io);
 inline int read_u8(struct io_struct * io);
@@ -1815,9 +1816,10 @@ thaw(data)
 		io_self = newRV_noinc((SV*)newAV());
 		io_in_init(&io_record, io_self, data, AMF0);
 		sv_2mortal(io_self);
+        if (SvMAGICAL(data))
+            mg_get(data);
 
-
-		if (SvPOK(data)){
+		if (SvPOKp(data)){
 			int error_code;
 			if (error_code = setjmp(io_record.target_error)){
 				//croak("Failed parse string. unspected EOF");
@@ -1894,7 +1896,10 @@ thaw(data)
 		io_in_init(&io_record, io_self, data, AMF3);
 		sv_2mortal(io_self);
 		
-		if (SvPOK(data)){
+        if (SvMAGICAL(data))
+            mg_get(data);
+
+		if (SvPOKp(data)){
 			int error_code;
 			if (error_code = setjmp(io_record.target_error)){
                 sv_setiv(ERRSV, error_code);
