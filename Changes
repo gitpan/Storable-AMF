@@ -152,4 +152,12 @@ Revision history for Perl extension Storable::AMF.
 0.3900 (  876) 2008-12-30 11:28:29 +0300 
 	- fix warnings
 	- remove stupid say from test
+	- comment out SVt_string for 5.11.0
+
+0.4000 (  882) 2009-01-10 18:03:20 +0300 
+	- Now can handle  magical strings in thawing
+
+0.4100 (  884) 2009-01-10 18:03:20 +0300 
+	- fix IV to UV for some strict compilers 
+
 

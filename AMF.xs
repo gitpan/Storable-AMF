@@ -957,7 +957,7 @@ inline SV* parse_ecma_array(struct io_struct *io){
 		key_len = read_u16(io);
 		key_ptr = read_chars(io, key_len);
 		if (key_len == 1) {
-			IV index;
+			UV index;
 			if ((IS_NUMBER_IN_UV & grok_number(key_ptr, key_len, &index)) &&
 				 (index < array_len)){
 				av_store(this_array, index, parse_one(io));
