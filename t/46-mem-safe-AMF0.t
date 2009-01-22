@@ -18,31 +18,35 @@ sub tt(&){
 }
 
 
+my $directory = qw(t/AMF0);
 my @item ;
-@item= map {grep { $_!~m/\./ } GrianUtils->my_readdir("t/$_/") } qw( AMF0);
+@item = GrianUtils->list_content($directory);
 
 
 my @objs;
 for my $item (@item){
-	my $eval  = GrianUtils->my_readfile("$item");
+	my $packet  = GrianUtils->read_pack($directory, $item);
+    my $eval = $packet->{eval};
+    my $obj;
 	no strict;
-	my $s = eval $eval;
+	$obj = eval $eval;
 	die $@ if $@;
-    push (@objs, $item), next if !ref_lost_memory($s);
+    push @objs, $item, next if !ref_lost_memory($obj);
+    print Dumper($item, $obj);
 }
-my $total = @objs*4 + @item;
+my $total = @item + @objs*4;
 eval "use Test::More tests=>$total;";
 warn $@ if $@;
 
 
+
 TEST_LOOP: for my $item (@item){
-	my $image_amf3 = GrianUtils->my_readfile("$item.amf3");
-	my $image_amf0 = GrianUtils->my_readfile("$item.amf0");
-	my $eval  = GrianUtils->my_readfile("$item");
+    my $packet = GrianUtils->read_pack($directory, $item);
+    my ($image_amf3, $image_amf0, $eval) = @$packet{qw(amf3 amf0 eval)};
 	if ($eval =~m/use\s+utf8/) {
 		SKIP: {
 			no strict;
-			skip("utf8 convert is not supported mode", 6);
+			skip("utf8 convert is not supported mode", 1);
 		}
 	}
 	else {
@@ -57,13 +61,12 @@ TEST_LOOP: for my $item (@item){
 	}
 }
 TEST_LOOP: for my $item (@objs){
-	my $image_amf3 = GrianUtils->my_readfile("$item.amf3");
-	my $image_amf0 = GrianUtils->my_readfile("$item.amf0");
-	my $eval  = GrianUtils->my_readfile("$item");
+    my $packet = GrianUtils->read_pack($directory, $item);
+    my ($image_amf3, $image_amf0, $eval) = @$packet{qw(amf3 amf0 eval)};
 	if ($eval =~m/use\s+utf8/) {
 		SKIP: {
 			no strict;
-			skip("utf8 convert is not supported mode", 6);
+			skip("utf8 convert is not supported mode", 4);
 		}
 	}
 	else {

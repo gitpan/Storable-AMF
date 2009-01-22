@@ -962,7 +962,7 @@ inline SV* parse_ecma_array(struct io_struct *io){
 				 (index < array_len)){
 				av_store(this_array, index, parse_one(io));
 				for(i=1; i<array_len; ++i){
-					IV index;
+					UV index;
 					int key_len= read_u16(io);
 					char *s = read_chars(io, key_len);
 

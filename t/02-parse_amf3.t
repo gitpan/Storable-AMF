@@ -5,8 +5,10 @@ use ExtUtils::testlib;
 use Storable::AMF3 qw(freeze thaw retrieve);
 use GrianUtils;
 use Data::Dumper;
+
+my $directory = qw(t/AMF0);
 my @item ;
-@item= map {grep { $_!~m/\./ } GrianUtils->my_readdir("t/$_/") } qw( AMF0);
+@item = GrianUtils->list_content($directory);
 
 #@item = grep { /n_-?\ddd+$/ } @item;
 
@@ -20,19 +22,17 @@ warn $@ if $@;
 
 
 for my $item (@item){
-	my $eval  = GrianUtils->my_readfile("$item");
+	my $form  = GrianUtils->read_pack($directory, $item);
+    my $eval = $form->{eval};
 	no strict;
 	eval $eval;
 	die $@ if $@;
 }
 TEST_LOOP: for my $item (@item){
-	my $image_amf3 = GrianUtils->my_readfile("$item.amf3");
-	my $image_amf0 = GrianUtils->my_readfile("$item.amf0");
+    my $packet = GrianUtils->read_pack($directory, $item);
+    my ($image_amf3, $image_amf0, $eval) = @$packet{qw(amf3 amf0 eval)};
 
-	my $eval  = GrianUtils->my_readfile("$item");
-    if (-r "$item.xml") {
-        $eval = GrianUtils->my_readfile("$item.xml");
-    }
+    $eval = $packet->{xml} if exists $$packet{xml};
 	if ($eval =~m/use\s+utf8/) {
 		SKIP: {
 			no strict;

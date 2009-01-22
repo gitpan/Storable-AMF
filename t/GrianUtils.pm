@@ -6,6 +6,7 @@ use Carp qw/carp croak/;
 use Fcntl qw(:flock);
 use File::Spec;
 use Scalar::Util qw(refaddr reftype);
+use List::Util qw(max); 
 use base 'Exporter';
 
 our (@EXPORT, @EXPORT_OK);
@@ -45,14 +46,6 @@ sub hex_decode{
 	my $class = shift;
 	my $s     = shift;
 	return pack "H*", $s;
-}
-
-sub pg_encode{
-#	return XS::Pg::pg_encode($_[1]);
-}
-
-sub pg_decode{
-#	return XS::Pg::pg_decode($_[1]);
 }
 sub pg_freeze{
 	my $class  = shift;
@@ -106,7 +99,9 @@ sub my_readdir{
 sub my_readfile{
 	my $class = shift;
     my $file = shift;
+    my @dirs = @_;
 	my $buf;
+    $file = File::Spec->catfile(@_, $file);
 	open my $filefh, "<", $file
 	or die "Can't open file '$file' for reading";
 	flock $filefh, LOCK_SH;
@@ -115,6 +110,99 @@ sub my_readfile{
 	close ($filefh);
 	return $buf;
 }
+
+sub create_pack{
+    my $class = shift;
+    my $name  = shift;
+    my $dir   = shift;
+
+
+
+}
+sub list_content{
+    my $class = shift;
+    my $dir   = shift;
+    my $regex = shift || qr//;
+    my $folder = $class->content($dir);
+    return () unless $folder;
+    return grep { $_=~ $regex } keys %$folder;
+};
+
+our $pack = "(w/a)*";
+our @fixed_names = qw(eval amf0 amf3);
+sub _pack{
+    my $hash = shift;
+    my (@fixed) = delete @$hash{@fixed_names};
+    #my $s = \ pack "N/aN/aN/a(N/aN/a)*", $eval, $amf0, $amf3, %$hash;    
+    my $s = \ pack $pack, @fixed, %$hash;    
+    @$hash{@fixed_names} = (@fixed);
+    return $$s;
+}
+use Storable::AMF0;
+use Data::Dumper;
+sub _unpack{
+    my (@fixed, %rest);
+    (@fixed[0..$#fixed_names], %rest) = unpack $pack, $_[0];
+    @rest{@fixed_names} = (@fixed);
+    return \%rest;    
+};
+
+sub read_pack{
+    my $class = shift;
+    my $dir   = shift;
+    my $name  = shift;
+    my $folder = $class->content($dir);
+    return  $$folder{$name};
+    print Dumper($$folder{$name}, _unpack(_pack($$folder{$name})));
+
+}
+
+our %dir;
+sub content{
+    my $class = shift;
+    my $dir   = shift;
+
+    return $dir{$dir} if $dir{$dir};
+    my @content = grep {-f $_ and -r $_ } grep { $_!~m/(?:^|(?:[\\\/]))\.{1,2}/ } $class->my_readdir($dir);
+    my %folder;
+   
+    my @name = grep { m/(?:amf0|pack)$/ } @content;
+    
+    for (@name){
+        $_=~s/\.(?:amf0|pack)$//;
+        m/(.*[\/\\])/; # basename
+        my $pos = $+[0];
+        my $sname = substr($_, $pos);
+        my $name = substr($_,0, $pos+length($sname));
+        my $ext;
+        my @c = grep { m/\Q$name.\E\w{2,}+$/ } @content;
+        no warnings;
+
+        for (@c){
+            $ext = substr $_, ($pos + length($sname)+1);
+            my $f_content = $class->my_readfile($_);
+            $folder{$sname}{$ext}=$f_content; 
+        };
+        if (! exists $folder{$sname}{'pack'} ){
+            my $pack_name = $_.".pack";
+            delete $folder{$sname}{'pack'};
+
+            open my $fh, ">", $pack_name or die "can't open $pack_name";
+            binmode($fh);
+            print $fh _pack($folder{$sname});
+            close($fh);            
+        }
+        else {
+            my $packet  = $folder{$sname}{'pack'};
+            $folder{$sname} = _unpack($packet);
+            delete $folder{$sname}{'pack'};
+        }
+    };
+    $dir{$dir} = \%folder;
+    return \%folder;
+}
+
+
 
 sub abs2rel{
 	my $class    = shift;
@@ -155,20 +243,14 @@ sub _all_refs_addr{
         $$c{refaddr $item} = 1;
         if (reftype $item eq 'ARRAY'){
             _all_refs_addr($c, @$item);
-
-#~             foreach (_all_refs_addr($c, @$item)){
-#~                 $$c{$_} = 1;
-#~             }
         }
         elsif (reftype $item eq 'HASH') {
             _all_refs_addr($c, $_);
-            #@$c{map {_all_refs_addr($c, $_)} values %$item} = ();
         }
         elsif (reftype $item eq 'SCALAR') {            
         }
         elsif (reftype $item eq 'REF'){
             _all_refs_addr($c, $$item)
-            #$$c{_all_refs_addr($c, $$item)} = 1;
         }
         else {
             croak "Unsupported type ". reftype $item;
@@ -176,7 +258,6 @@ sub _all_refs_addr{
     }
     return keys %$c;
 }
-       use List::Util qw(max); 
 sub ref_mem_safe{
     my $sub = shift;
     my $count_to_execute = shift ||200;
@@ -195,10 +276,6 @@ sub ref_mem_safe{
                 $old_max = $new_max;
                 $nu = -1;
             };
-#~             unless (grep {$_ == $addr} @addresses){
-#~                 push @addresses, $addr;
-#~                 $nu = -1;
-#~             };
         ++$nu;
         return $round if ($nu > $count_to_be_ok) ;
     }

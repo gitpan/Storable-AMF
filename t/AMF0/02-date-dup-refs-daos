@@ -1,1 +1,0 @@
-my ($date, $arr, $obj, $str) = (0, [], {}, 'foo');[ $date, $arr, $obj, $str, [ $date, $arr, $obj, $str]]

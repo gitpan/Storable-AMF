@@ -160,4 +160,9 @@ Revision history for Perl extension Storable::AMF.
 0.4100 (  884) 2009-01-10 18:03:20 +0300 
 	- fix IV to UV for some strict compilers 
 
-
+0.4200 (  999) 2009-01-22 14:45:31 +0300 
+	- fixed typos in IV to UV for Solaris (again)
+	- dublicated test remove
+    - fix test never worked
+    - reorganize tests (move rename etc)
+    - added all files (amf0 amf3 xml eval) in one pack
