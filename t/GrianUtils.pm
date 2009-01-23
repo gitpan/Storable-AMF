@@ -122,7 +122,7 @@ sub create_pack{
 sub list_content{
     my $class = shift;
     my $dir   = shift;
-    my $regex = shift || qr//;
+    my $regex = shift || qr/.*?/;
     my $folder = $class->content($dir);
     return () unless $folder;
     return grep { $_=~ $regex } keys %$folder;
@@ -175,7 +175,7 @@ sub content{
         my $sname = substr($_, $pos);
         my $name = substr($_,0, $pos+length($sname));
         my $ext;
-        my @c = grep { m/\Q$name.\E\w{2,}+$/ } @content;
+        my @c = grep { m/\Q$name.\E\w{2,}$/ } @content;
         no warnings;
 
         for (@c){
