@@ -3,11 +3,11 @@ package Storable::AMF3;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.43';
+our $VERSION = '0.45';
 use subs qw(freeze thaw);
-require Exporter;
-use Carp qw(carp);
 
+require Exporter;
+use Carp qw(croak);
 our @ISA = qw(Exporter);
 
 # Items to export into callers namespace by default. Note: do not export
@@ -21,15 +21,14 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
-our @EXPORT = qw(
-);
+our @EXPORT = qw();
 
 
 sub retrieve{
 	my $file = shift;
 	open my $fh, "<", $file or die "Can't open file \"$file\" for read.";
 	my $buf;
-	read $fh, $buf, -s $fh;
+	read $fh, $$buf, -s $fh;
 	close($fh);
 	return thaw($buf);
 }
@@ -39,10 +38,10 @@ sub lock_retrieve{
 	open my $fh, "<", $file or die "Can't open file \"$file\" for read.";
 	flock $fh, LOCK_SH;
 	my $buf;
-	read $fh, $buf, -s $fh;
+	read $fh, $$buf, -s $fh;
 	flock $fh, LOCK_UN;
 	close($fh);
-	return thaw($buf);
+	return thaw($$buf);
 }
 sub store{
 	my $object = shift;
@@ -50,10 +49,10 @@ sub store{
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	truncate $fh, 0;
 	#print $fh freeze($object);
-    my $freeze;
-    carp "Bad object" unless defined ($freeze = freeze $object);
-    print $fh $freeze if defined($freeze);
-	close($fh) and  defined $freeze;
+    my $freeze = \ freeze($object);
+    croak "Bad object" unless defined $$freeze;
+	print $fh $$freeze if defined $$freeze;
+	close($fh) and  defined $$freeze;;
 }
 
 sub lock_store{
@@ -63,11 +62,11 @@ sub lock_store{
 	flock $fh, LOCK_EX;
 	truncate $fh, 0;
 	#print $fh freeze($object);
-    my $freeze;
-    carp "Bad object" unless defined ($freeze = freeze $object);
-    print $fh $freeze if defined($freeze);
+    my $freeze = \ freeze($object);
+    croak  "Bad object" unless defined $$freeze;
+	print $fh $$freeze if defined $$freeze;
 	flock $fh, LOCK_UN;
-	close($fh) and defined $freeze;
+	close($fh) and  defined $$freeze;;
 }
 
 sub nstore{
@@ -76,10 +75,10 @@ sub nstore{
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	truncate $fh, 0;
 	#print $fh freeze($object);
-    my $freeze;
-    carp "Bad object" unless defined ($freeze = freeze $object);
-    print $fh $freeze if defined($freeze);
-	close($fh) and defined $freeze;
+    my $freeze = \ freeze($object);
+    croak "Bad object" unless defined $$freeze;
+	print $fh $$freeze if defined $$freeze;
+	close($fh) and  defined $$freeze;;
 }
 
 sub lock_nstore{
@@ -88,12 +87,14 @@ sub lock_nstore{
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	flock $fh, LOCK_EX;
 	truncate $fh, 0;
-	#print $fh freeze($object);
-    my $freeze;
-    carp "Bad object" unless defined ($freeze = freeze $object);
-    print $fh $freeze if defined($freeze);
+    my $freeze = \ freeze($object);
+    if ( defined $$freeze ) {
+        print $fh $$freeze;
+    } else {
+        croak "Storable::AMF: Bad object"
+    };
 	flock $fh, LOCK_UN;
-	close($fh) and defined $freeze;
+	close($fh) and defined $$freeze;
 }
 #~ sub dclone{
 #~ 	my $object = shift;
@@ -132,12 +133,6 @@ Storable::AMF3 - Perl extension for serialize/deserialize AMF3 data
 
   use Storable::AMF3 qw(nstore freeze thaw dclone);
 
-  # Network order: Due to spec of AMF3 format objects (hash, arrayref) stored in network order.
-  # and thus nstore and store are synonyms 
-
-  nstore \%table, 'file';
-  $hashref = retrieve('file'); 
-
   
   # Advisory locking
   use Storable::AMF3 qw(lock_store lock_nstore lock_retrieve)
@@ -150,7 +145,7 @@ Storable::AMF3 - Perl extension for serialize/deserialize AMF3 data
 =head1 DESCRIPTION
 
 This module is (de)serializer for Adobe's AMF3 (Action Message Format ver 3).
-This is only module and it recognize only AMF data. 
+This is only module and it recognize only AMF3 data. 
 Almost all function implemented in C for speed. 
 And some cases faster then Storable( for me always)
 
@@ -167,7 +162,7 @@ And some cases faster then Storable( for me always)
 =over
 
 =item freeze($obj) 
-  --- Serialize perl object($obj) to AMF, and return AMF data
+  --- Serialize perl object($obj) to AMF3, and return AMF data
 
 =item thaw($amf3)
   --- Deserialize AMF data to perl object, and return the perl object
@@ -203,16 +198,10 @@ And some cases faster then Storable( for me always)
 
 =back
 
-=head1 NOTICE
-
-  Storable::AMF is currently is alpha development stage. 
-
-=cut
 
 =head1 LIMITATION
 
-At current moment and with restriction of AMF3 format referrences to scalar are not serialized,
-and BigEndian machines are not supported, 
+At current moment and with restriction of AMF0/AMF3 format referrences to scalar are not serialized,
 and can't/ may not serialize tied variables.
 
 =head1 SEE ALSO

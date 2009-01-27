@@ -47,6 +47,14 @@ sub hex_decode{
 	my $s     = shift;
 	return pack "H*", $s;
 }
+
+sub pg_encode{
+	#return XS::Pg::pg_encode($_[1]);
+}
+
+sub pg_decode{
+	#return XS::Pg::pg_decode($_[1]);
+}
 sub pg_freeze{
 	my $class  = shift;
 	my $object = shift;
@@ -157,10 +165,10 @@ sub read_pack{
 
 }
 
-our %dir;
 sub content{
     my $class = shift;
     my $dir   = shift;
+    our %dir;
 
     return $dir{$dir} if $dir{$dir};
     my @content = grep {-f $_ and -r $_ } grep { $_!~m/(?:^|(?:[\\\/]))\.{1,2}/ } $class->my_readdir($dir);
@@ -280,5 +288,45 @@ sub ref_mem_safe{
         return $round if ($nu > $count_to_be_ok) ;
     }
     return 0;
+}
+sub my_create_file{
+    my $class = shift;
+    my $file = shift;
+    my $content = shift;
+    my $base = shift;
+    my $usage = 'GrianUtils->my_create_file($file, $content, $base)...';
+    warn "$usage: \$base not is option" unless $base;
+    croak "$usage: double dot in \$file restricted" if $file=~m/\.\./;
+    $base ||= '.';
+    carp "$usage: \$base --- ($base) is not a directory" unless -d $base;
+    my @r =  split "/", $file;
+    my $lfile = pop @r;
+
+    my $loc_folder = File::Spec->catfile($base, @r);
+    if (-d -w $loc_folder) {
+        my $loc_file;
+        open my $fh, ">", $loc_file = File::Spec->catfile($base, $file) 
+          or croak "$usage: Can't create file($loc_file)";
+        binmode($fh);
+        print $fh $content;
+        close($fh);
+    }
+    elsif (-d _) {
+        croak "$usage: Not writeable directory($loc_folder)";
+    }
+    else {
+        # Generate path for
+
+        my @folders;
+        my $folder = $base;
+
+        for my $r (@r){
+            $folder = File::Spec->catfile($folder, $r);
+            next if (-d $folder);
+            mkdir($folder) 
+                or croak "$usage: Can't create directory ($folder) for path($loc_folder)";
+        }
+        $class->my_create_file($file, $content, $base);
+    }
 }
 1;

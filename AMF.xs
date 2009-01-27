@@ -1,8 +1,11 @@
+#define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
-#include "ppport.h"
+
+// #include "ppport.h"
 #include "setjmp.h"
+
 #define ERR_EOF 1
 #define ERR_REF 2
 #define ERR_MARKER 3
@@ -18,6 +21,7 @@
 #define ERR_BAD_XML_REF 13
 #define ERR_BAD_BYTEARRAY_REF 14
 #define ERR_EXTRA_BYTE 15
+#define ERR_INT_OVERFLOW 16
 //#define ERR_UNIMPLEMENTED 16
 
 #define AMF0 0
@@ -88,6 +92,7 @@ struct io_struct{
 	char * pos;
 	char * end;
 	char *message;
+    void * this_perl;
 	SV * sv_buffer;
 	AV * refs;
 	int RV_COUNT;
@@ -109,21 +114,25 @@ struct io_struct{
 };
 
 inline void io_register_error(struct io_struct *io, int );
-inline int io_position(struct io_struct *io){
+inline int
+io_position(struct io_struct *io){
 	return io->pos-io->ptr;
 }
 
-inline void io_set_position(struct io_struct *io, int pos){
+inline void
+io_set_position(struct io_struct *io, int pos){
 	io->pos = io->ptr + pos;
 }
 
-inline void io_savepoint(struct io_struct *io, struct amf3_restore_point *p){
+inline void 
+io_savepoint(pTHX_ struct io_struct *io, struct amf3_restore_point *p){
 	p->offset_buffer = io_position(io);
 	p->offset_object = av_len(io->arr_object);
-	p->offset_trait = av_len(io->arr_trait);
+	p->offset_trait  = av_len(io->arr_trait);
 	p->offset_string = av_len(io->arr_string);
 }
-inline void io_restorepoint(struct io_struct *io, struct amf3_restore_point *p){
+inline void
+io_restorepoint(pTHX_ struct io_struct *io, struct amf3_restore_point *p){
 	io_set_position(io, p->offset_buffer);	
 	while(av_len(io->arr_object) > p->offset_object){
 		sv_2mortal(av_pop(io->arr_object));
@@ -137,21 +146,25 @@ inline void io_restorepoint(struct io_struct *io, struct amf3_restore_point *p){
 }
 
 
-inline void io_move_backward(struct io_struct *io, int step){
+inline void
+io_move_backward(struct io_struct *io, int step){
 	io->pos-= step;
 }
 
-inline void io_move_forward(struct io_struct *io, int len){
+inline void
+io_move_forward(struct io_struct *io, int len){
 	io->pos+=len;	
 }
 
-inline void io_require(struct io_struct *io, int len){
+inline void
+io_require(struct io_struct *io, int len){
     if (io->end - io->pos < len){
 		io_register_error(io, ERR_EOF);
 	}
 }
 
-inline void io_reserve(struct io_struct *io, int len){
+inline void
+io_reserve(pTHX_ struct io_struct *io, int len){
 	if (io->end - io->pos< len){
 	    unsigned int ipos = io->pos - io->ptr;
 		unsigned int buf_len;
@@ -170,7 +183,8 @@ inline void io_register_error(struct io_struct *io, int errtype){
 	longjmp(io->target_error, errtype);
 }
 
-inline void io_in_init(struct io_struct * io, SV *io_self, SV* data, int amf3){
+inline void io_in_init(pTHX_ struct io_struct * io, SV *io_self, SV* data, int amf3){
+//    PerlInterpreter *my_perl = io->interpreter;
 	STRLEN io_len;
 	io->ptr = SvPVX(data);
     io_len  = SvLEN(data);
@@ -189,7 +203,7 @@ inline void io_in_init(struct io_struct * io, SV *io_self, SV* data, int amf3){
 		sv_2mortal((SV*) io->arr_object);
 	}
 }
-void io_in_destroy(struct io_struct * io, AV *a){
+void io_in_destroy(pTHX_ struct io_struct * io, AV *a){
     int i;
     SV **ref_item;
     int alen;
@@ -214,21 +228,21 @@ void io_in_destroy(struct io_struct * io, AV *a){
     }
     else {
         if (io->version == AMF0){
-            io_in_destroy(io, io->refs);
+            io_in_destroy(aTHX_  io, io->refs);
         }
         else if (io->version == AMF3) {
 //            fprintf( stderr, "%p %p %p %p\n", io->refs, io->arr_object, io->arr_trait, io->arr_string);
-            io_in_destroy(io, io->refs);
-            io_in_destroy(io, io->arr_object);
-            io_in_destroy(io, io->arr_trait); // May be not needed
-            io_in_destroy(io, io->arr_string);
+            io_in_destroy(aTHX_  io, io->refs);
+            io_in_destroy(aTHX_  io, io->arr_object);
+            io_in_destroy(aTHX_  io, io->arr_trait); // May be not needed
+            io_in_destroy(aTHX_  io, io->arr_string);
         }
         else {
             croak("bad version at destroy");
         }
     }
 }
-inline void io_out_init(struct io_struct *io, SV* io_self, int amf3){
+inline void io_out_init(pTHX_ struct io_struct *io, SV* io_self, int amf3){
 	SV *sbuffer;
 	unsigned int ibuf_size ;
 	unsigned int ibuf_step ;
@@ -310,12 +324,12 @@ inline SV * io_buffer(struct io_struct *io){
 // 	}
 // 	return type;
 // }
-inline double read_double(struct io_struct *io);
-char read_marker(struct io_struct * io);
-inline int read_u8(struct io_struct * io);
-inline int read_u16(struct io_struct * io);
-inline int read_u32(struct io_struct * io);
-inline int read_u24(struct io_struct * io);
+inline double io_read_double(struct io_struct *io);
+char io_read_marker(struct io_struct * io);
+inline int io_read_u8(struct io_struct * io);
+inline int io_read_u16(struct io_struct * io);
+inline int io_read_u32(struct io_struct * io);
+inline int io_read_u24(struct io_struct * io);
 
 
 #define MOVERFLOW(VALUE, MAXVALUE, PROC)\
@@ -326,7 +340,7 @@ inline int read_u24(struct io_struct * io);
 
 
 		
-inline void write_double(struct io_struct *io, double value){
+inline void io_write_double(pTHX_ struct io_struct *io, double value){
 	const int step = 8;
 	union {
 		signed   int iv;
@@ -334,7 +348,7 @@ inline void write_double(struct io_struct *io, double value){
 		double nv;
 		char   c[8];
 	} v;
-	io_reserve(io, step );
+	io_reserve(aTHX_  io, step );
 	v.nv = value;
 	io->pos[0] = v.c[GET_NBYTE(step, 0, value)];
 	io->pos[1] = v.c[GET_NBYTE(step, 1, value)];
@@ -347,7 +361,7 @@ inline void write_double(struct io_struct *io, double value){
 	io->pos+= step ;
 	return;
 }
-inline void write_marker(struct io_struct * io, char value)	{
+inline void io_write_marker(pTHX_ struct io_struct * io, char value)	{
 	const int step = 1;
 	union vvv{
 		signed   int iv;
@@ -355,13 +369,13 @@ inline void write_marker(struct io_struct * io, char value)	{
 		double nv;
 		char   c[8];
 	} ;
-	io_reserve(io, 1);
+	io_reserve(aTHX_  io, 1);
 	io->pos[0]= value;
 	io->pos+=step;
 	return;
 }
 
-inline void write_u8(struct io_struct * io, unsigned int value){
+inline void io_write_u8(pTHX_ struct io_struct * io, unsigned int value){
 	const int step = 1;
 	union {
 		signed   int iv;
@@ -371,14 +385,14 @@ inline void write_u8(struct io_struct * io, unsigned int value){
 	} v;
 	v.uv = value;
 	MOVERFLOW(value, 255, "write_u8");
-	io_reserve(io, 1);
+	io_reserve(aTHX_  io, 1);
 	io->pos[0]= v.c[0];
 	io->pos+=step ;
 	return;
 }
 
 		
-inline void write_s16(struct io_struct * io, signed int value){
+inline void io_write_s16(pTHX_ struct io_struct * io, signed int value){
 	const int step = 2;
 	union {
 		signed   int iv;
@@ -388,14 +402,14 @@ inline void write_s16(struct io_struct * io, signed int value){
 	} v;
 	v.iv = value;
 	MOVERFLOW(value, 32767, "write_s16");
-	io_reserve(io, step);
+	io_reserve(aTHX_  io, step);
 	io->pos[0]= v.c[GET_NBYTE(step, 0, value)];
 	io->pos[1]= v.c[GET_NBYTE(step, 1, value)];
 	io->pos+=step;
 	return;
 }
 
-inline void write_u16(struct io_struct * io, unsigned int value){
+inline void io_write_u16(pTHX_ struct io_struct * io, unsigned int value){
 	const int step = 2;
 	union {
 		signed   int iv;
@@ -403,7 +417,7 @@ inline void write_u16(struct io_struct * io, unsigned int value){
 		double nv;
 		char   c[8];
 	} v;
-	io_reserve(io,step);
+	io_reserve(aTHX_  io,step);
 	MOVERFLOW(value, 65535 , "write_u16");
 	v.uv = value;
 	io->pos[0] = v.c[GET_NBYTE(step, 0, value)];
@@ -412,7 +426,7 @@ inline void write_u16(struct io_struct * io, unsigned int value){
 	return;
 }
 
-inline void write_u32(struct io_struct * io, unsigned int value){
+inline void io_write_u32(pTHX_ struct io_struct * io, unsigned int value){
 	const int step = 4;
 	union {
 		signed   int iv;
@@ -420,7 +434,7 @@ inline void write_u32(struct io_struct * io, unsigned int value){
 		double nv;
 		char   c[8];
 	} v;
-	io_reserve(io,step);
+	io_reserve(aTHX_  io,step);
 	v.uv = value;
 	io->pos[0] = v.c[GET_NBYTE(step, 0, value)];
 	io->pos[1] = v.c[GET_NBYTE(step, 1, value)];
@@ -430,7 +444,7 @@ inline void write_u32(struct io_struct * io, unsigned int value){
 	return;
 }
 
-inline void write_u24(struct io_struct * io, unsigned int value){
+inline void io_write_u24(pTHX_ struct io_struct * io, unsigned int value){
 	const int step = 3;
 	union {
 		signed   int iv;
@@ -438,7 +452,7 @@ inline void write_u24(struct io_struct * io, unsigned int value){
 		double nv;
 		char   c[8];
 	} v;
-	io_reserve(io,step);
+	io_reserve(aTHX_  io,step);
 	MOVERFLOW(value,16777215 , "write_u16");
 	v.uv = value;
 	io->pos[0] = v.c[GET_NBYTE(step, 0, value)];
@@ -447,25 +461,25 @@ inline void write_u24(struct io_struct * io, unsigned int value){
 	io->pos+=step;
 	return;
 }
-inline void write_bytes(struct io_struct* io, char * buffer, int len){
-	io_reserve(io, len);
+inline void io_write_bytes(pTHX_ struct io_struct* io, char * buffer, int len){
+	io_reserve(aTHX_  io, len);
 	Copy(buffer, io->pos, len, char);
 	io->pos+=len;
 }	
-inline void format_one(struct io_struct *io, SV * one);
-inline void format_number(struct io_struct *io, SV * one);
-inline void format_string(struct io_struct *io, SV * one);
-inline void format_strict_array(struct io_struct *io, AV * one);
-inline void format_object(struct io_struct *io, HV * one);
-inline void format_null(struct io_struct *io);
-inline void format_typed_object(struct io_struct *io, HV * one);
+inline void format_one(pTHX_ struct io_struct *io, SV * one);
+inline void format_number(pTHX_ struct io_struct *io, SV * one);
+inline void format_string(pTHX_ struct io_struct *io, SV * one);
+inline void format_strict_array(pTHX_ struct io_struct *io, AV * one);
+inline void format_object(pTHX_ struct io_struct *io, HV * one);
+inline void format_null(pTHX_ struct io_struct *io);
+inline void format_typed_object(pTHX_ struct io_struct *io, HV * one);
 
-inline void format_reference(struct io_struct * io, SV *ref){
-	write_marker(io, '\007');
-	write_u16(io, SvIV(ref));
+inline void format_reference(pTHX_ struct io_struct * io, SV *ref){
+	io_write_marker(aTHX_  io, MARKER0_REFERENCE);
+	io_write_u16(aTHX_  io, SvIV(ref));
 }
 
-inline void format_one(struct io_struct *io, SV * one){
+inline void format_one(pTHX_ struct io_struct *io, SV * one){
 	
 	if (SvROK(one)){
 		SV * rv = (SV*) SvRV(one);
@@ -473,7 +487,7 @@ inline void format_one(struct io_struct *io, SV * one){
 		SV **OK = hv_fetch(io->RV_HASH, (char *)(&rv), sizeof (rv), 1);
 		if (SvOK(*OK)) {
 			//PerlIO_printf( PerlIO_stderr(),"old reference %d\n", SvIV(*OK));
-			format_reference(io, *OK);
+			format_reference(aTHX_  io, *OK);
 		}
 		else {
 			sv_setiv(*OK, io->RV_COUNT);
@@ -483,7 +497,7 @@ inline void format_one(struct io_struct *io, SV * one){
 
 			if (sv_isobject(one)) {
                 if (SvTYPE(rv) == SVt_PVHV){
-                    format_typed_object(io, (HV *) rv);
+                    format_typed_object(aTHX_  io, (HV *) rv);
                 }
                 else {
                     // may be i has to format as undef
@@ -491,10 +505,10 @@ inline void format_one(struct io_struct *io, SV * one){
                 }
 			}
 			else if (SvTYPE(rv) == SVt_PVAV) 
-				format_strict_array(io, (AV*) rv);
+				format_strict_array(aTHX_  io, (AV*) rv);
 			else if (SvTYPE(rv) == SVt_PVHV) {
-				write_marker(io, MARKER0_OBJECT);
-				format_object(io, (HV*) rv);
+				io_write_marker(aTHX_  io, MARKER0_OBJECT);
+				format_object(aTHX_  io, (HV*) rv);
 			}
 			else {
 				io->message = "bad type of object in stream";
@@ -505,24 +519,24 @@ inline void format_one(struct io_struct *io, SV * one){
 	else {
 		if (SvOK(one)){
 			if (SvPOK(one)){
-				format_string(io, one);
+				format_string(aTHX_  io, one);
 			}
 			else {
-				format_number(io, one);
+				format_number(aTHX_  io, one);
 			}
 		}
 		else {
-			format_null(io);
+			format_null(aTHX_  io);
 		}
 	}
 }
 		
-inline void format_number(struct io_struct *io, SV * one){
+inline void format_number(pTHX_ struct io_struct *io, SV * one){
 
-	write_marker(io, MARKER0_NUMBER);
-	write_double(io, SvNV(one));	
+	io_write_marker(aTHX_  io, MARKER0_NUMBER);
+	io_write_double(aTHX_  io, SvNV(one));	
 }
-inline void format_string(struct io_struct *io, SV * one){
+inline void format_string(pTHX_ struct io_struct *io, SV * one){
 	
 	// TODO: process long string
 	if (SvPOK(one)){
@@ -530,39 +544,39 @@ inline void format_string(struct io_struct *io, SV * one){
 		char * pv;
 		pv = SvPV(one, str_len);
 		if (str_len > 65500){
-			write_marker(io, MARKER0_LONG_STRING);
-			write_u32(io, str_len);
-			write_bytes(io, pv, str_len);
+			io_write_marker(aTHX_  io, MARKER0_LONG_STRING);
+			io_write_u32(aTHX_  io, str_len);
+			io_write_bytes(aTHX_  io, pv, str_len);
 		}
 		else {
 		
-			write_marker(io, MARKER0_STRING);
-			write_u16(io, SvCUR(one));
-			write_bytes(io, SvPV_nolen(one), SvCUR(one));
+			io_write_marker(aTHX_  io, MARKER0_STRING);
+			io_write_u16(aTHX_  io, SvCUR(one));
+			io_write_bytes(aTHX_  io, SvPV_nolen(one), SvCUR(one));
         }
 	}else{
-		format_null(io);
+		format_null(aTHX_  io);
 	}
 }
-inline void format_strict_array(struct io_struct *io, AV * one){
+inline void format_strict_array(pTHX_ struct io_struct *io, AV * one){
 	int i, len;
 	AV * one_array;
 	one_array =  one;
 	len = av_len(one_array);
 
-	write_marker(io, '\012');
-	write_u32(io, len + 1);
+	io_write_marker(aTHX_  io, '\012');
+	io_write_u32(aTHX_  io, len + 1);
 	for(i = 0; i <= len; ++i){
 		SV ** ref_value = av_fetch(one_array, i, 0);
 		if (ref_value) {
-			format_one(io, *ref_value);
+			format_one(aTHX_  io, *ref_value);
 		}
 		else {
-			format_null(io);
+			format_null(aTHX_  io);
 		}
 	}
 }
-inline void format_object(struct io_struct *io, HV * one){
+inline void format_object(pTHX_ struct io_struct *io, HV * one){
 	STRLEN key_len;
 	HV *hv;
 	HE *he;
@@ -574,69 +588,69 @@ inline void format_object(struct io_struct *io, HV * one){
         while(he =  hv_iternext(hv)){
             key_str = HePV(he, key_len);
             value   = HeVAL(he);
-            write_u16(io, key_len);
-            write_bytes(io, key_str, key_len);
-            format_one(io, value);
+            io_write_u16(aTHX_  io, key_len);
+            io_write_bytes(aTHX_  io, key_str, key_len);
+            format_one(aTHX_  io, value);
         }
     }
 // #~     else {
 // #~         I32    key_len1;
 // #~         hv_iterinit(hv);
 // #~         while(value  = hv_iternextsv(hv, &key_str, &key_len1)){
-// #~             write_u16(io, key_len1);
-// #~             write_bytes(io, key_str, key_len1);
-// #~             format_one(io, value);
+// #~             io_write_u16(pTHX_ io, key_len1);
+// #~             io_write_bytes(pTHX_ io, key_str, key_len1);
+// #~             format_one(pTHX_ io, value);
 // #~         }
 // #~     }
-	write_u16(io, 0);
-	write_marker(io, MARKER0_OBJECT_END);
+	io_write_u16(aTHX_  io, 0);
+	io_write_marker(aTHX_  io, MARKER0_OBJECT_END);
 }
-inline void format_null(struct io_struct *io){
+inline void format_null(pTHX_ struct io_struct *io){
 	
-	write_marker(io, MARKER0_UNDEFINED);
+	io_write_marker(aTHX_  io, MARKER0_UNDEFINED);
 }
-inline void format_typed_object(struct io_struct *io,  HV * one){
+inline void format_typed_object(pTHX_ struct io_struct *io,  HV * one){
 	HV* stash = SvSTASH(one);
 	char *class_name = HvNAME(stash);
-	write_marker(io, '\x10');
-	write_u16(io, strlen(class_name));
-	write_bytes(io, class_name, strlen(class_name));
-	format_object(io, one);
+	io_write_marker(aTHX_  io, '\x10');
+	io_write_u16(aTHX_  io, strlen(class_name));
+	io_write_bytes(aTHX_  io, class_name, strlen(class_name));
+	format_object(aTHX_  io, one);
 }
 
-inline SV * parse_one(struct io_struct * io);
-//inline SV * read_PV(struct io_struct *io, int len);
+inline SV * parse_one(pTHX_ struct io_struct * io);
+//inline SV * io_read_PV(struct io_struct *io, int len);
 
 inline SV* parse_number(struct io_struct *io);
-inline SV* parse_boolean(struct io_struct *io);
+inline SV* parse_boolean(pTHX_ struct io_struct *io);
 inline SV* parse_string(struct io_struct *io);
-inline SV* parse_object(struct io_struct *io);
-inline SV* parse_movieclip(struct io_struct *io);
-inline SV* parse_null(struct io_struct *io);
-inline SV* parse_undefined(struct io_struct *io);
-inline SV* parse_reference(struct io_struct *io);
-inline SV* parse_object_end(struct io_struct *io);
-inline SV* parse_strict_array(struct io_struct *io);
-inline SV* parse_ecma_array(struct io_struct *io);
-inline SV* parse_date(struct io_struct *io);
-inline SV* parse_long_string(struct io_struct *io);
-inline SV* parse_unsupported(struct io_struct *io);
-inline SV* parse_recordset(struct io_struct *io);
-inline SV* parse_xml_document(struct io_struct *io);
-inline SV* parse_typed_object(struct io_struct *io);
+inline SV* parse_object(pTHX_ struct io_struct *io);
+inline SV* parse_movieclip(pTHX_ struct io_struct *io);
+inline SV* parse_null(pTHX_ struct io_struct *io);
+inline SV* parse_undefined(pTHX_ struct io_struct *io);
+inline SV* parse_reference(pTHX_ struct io_struct *io);
+inline SV* parse_object_end(pTHX_ struct io_struct *io);
+inline SV* parse_strict_array(pTHX_ struct io_struct *io);
+inline SV* parse_ecma_array(pTHX_ struct io_struct *io);
+inline SV* parse_date(pTHX_ struct io_struct *io);
+inline SV* parse_long_string(pTHX_ struct io_struct *io);
+inline SV* parse_unsupported(pTHX_ struct io_struct *io);
+inline SV* parse_recordset(pTHX_ struct io_struct *io);
+inline SV* parse_xml_document(pTHX_ struct io_struct *io);
+inline SV* parse_typed_object(pTHX_ struct io_struct *io);
 
 // void swap_bytes(void *data_ptr, int len){
 // 	return ;	
 // }
-void write_double(struct io_struct *io, double value);
-void write_marker(struct io_struct * io, char value);
-void write_u8(struct io_struct * io, unsigned int value);
-void write_s16(struct io_struct * io, signed int value);
-void write_u16(struct io_struct * io, unsigned int value);
-void write_u32(struct io_struct * io, unsigned int value);
-void write_u24(struct io_struct * io, unsigned int value);
+void io_write_double(pTHX_ struct io_struct *io, double value);
+void io_write_marker(pTHX_ struct io_struct * io, char value);
+void io_write_u8(pTHX_ struct io_struct * io, unsigned int value);
+void io_write_s16(pTHX_ struct io_struct * io, signed int value);
+void io_write_u16(pTHX_ struct io_struct * io, unsigned int value);
+void io_write_u32(pTHX_ struct io_struct * io, unsigned int value);
+void io_write_u24(pTHX_ struct io_struct * io, unsigned int value);
 
-inline double read_double(struct io_struct *io){
+inline double io_read_double(struct io_struct *io){
 	const int step = sizeof(double);
 	double a;
 	char * ptr_in  = io->pos;
@@ -659,14 +673,14 @@ inline char *io_read_bytes(struct io_struct *io, int len){
 	io->pos+=len;
 	return pos;
 }
-inline char *read_chars(struct io_struct *io, int len){
+inline char *io_read_chars(struct io_struct *io, int len){
 	char * pos = io->pos;
 	io_require(io, len);
 	io->pos+=len;
 	return pos;
 }
 	
-inline char read_marker(struct io_struct * io){
+inline char io_read_marker(struct io_struct * io){
 	const int step = 1;
 	char marker;
 	io_require(io, step);
@@ -674,7 +688,7 @@ inline char read_marker(struct io_struct * io){
 	io->pos++;
 	return marker;
 }
-inline int read_u8(struct io_struct * io){
+inline int io_read_u8(struct io_struct * io){
 	const int step = 1;
 	union{
 		unsigned int x;
@@ -686,7 +700,7 @@ inline int read_u8(struct io_struct * io){
 	io->pos+= step;
 	return (int) str.x;
 }
-inline int read_s16(struct io_struct * io){
+inline int io_read_s16(struct io_struct * io){
 	const int step = 2;
 	union{
 		int x;
@@ -699,7 +713,7 @@ inline int read_s16(struct io_struct * io){
 	io->pos+= step;
 	return (int) str.x;
 }
-inline int read_u16(struct io_struct * io){
+inline int io_read_u16(struct io_struct * io){
 	const int step = 2;
 	union{
 		unsigned int x;
@@ -712,7 +726,7 @@ inline int read_u16(struct io_struct * io){
 	io->pos+= step;
 	return (int) str.x;
 }
-inline int read_u24(struct io_struct * io){
+inline int io_read_u24(struct io_struct * io){
 	const int step = 3;
 	union{
 		unsigned int x;
@@ -726,7 +740,7 @@ inline int read_u24(struct io_struct * io){
 	io->pos+= step;
 	return (int) str.x;
 }
-inline int read_u32(struct io_struct * io){
+inline int io_read_u32(struct io_struct * io){
 	const int step = 4;
 	union{
 		unsigned int x;
@@ -741,7 +755,7 @@ inline int read_u32(struct io_struct * io){
 	io->pos+= step;
 	return (int) str.x;
 }
-inline void amf3_write_integer(struct io_struct *io, IV ivalue){
+inline void amf3_write_integer(pTHX_ struct io_struct *io, IV ivalue){
 	UV value;
 	if (ivalue<0){
 		value = 0x3fffffff & (UV) ivalue;	
@@ -750,18 +764,18 @@ inline void amf3_write_integer(struct io_struct *io, IV ivalue){
 		value = ivalue;
 	}
 	if (value<128){
-		io_reserve(io, 1);
+		io_reserve(aTHX_  io, 1);
 		io->pos[0]= (U8) value;
 		io->pos+=1;
 	}
 	else if (value<= 0x3fff ) {
-		io_reserve(io, 2);
+		io_reserve(aTHX_  io, 2);
 		io->pos[0] = (value>>7) | 128;
 		io->pos[1] = (value & 0x7f);
 		io->pos+=2;
 	}
 	else if (value <= 0x1fffff) {
-		io_reserve(io, 3);
+		io_reserve(aTHX_  io, 3);
 
 		io->pos[0] = (value>>14) | 128;
 		io->pos[1] = (value>>7 & 0x7f) |128;
@@ -769,7 +783,7 @@ inline void amf3_write_integer(struct io_struct *io, IV ivalue){
 		io->pos+=3;
 	}
 	else if ((value <= 0x3FFFFFFF)){
-		io_reserve(io, 4);
+		io_reserve(aTHX_  io, 4);
 
 		io->pos[0] = (value>>22 & 0xff) |128;
 		io->pos[1] = (value>>15 & 0x7f) |128;
@@ -778,10 +792,8 @@ inline void amf3_write_integer(struct io_struct *io, IV ivalue){
 		io->pos+=4;
 	}
 	else {
-		// Attention hack!!!
-		io->pos[-1] = MARKER3_DOUBLE;
-		write_double(io, ivalue);
-		return; //  TODO: Rewrite needed
+        io_register_error( io, ERR_INT_OVERFLOW);
+		return;
 	}
 	return;
 }
@@ -822,17 +834,17 @@ int amf3_read_integer(struct io_struct *io){
 	}
 	return value;
 }
-inline SV * parse_utf8(struct io_struct * io){
-	int string_len = read_u16(io);
+inline SV * parse_utf8(pTHX_ struct io_struct * io){
+	int string_len = io_read_u16(io);
 	SV * RETVALUE;
-	RETVALUE = newSVpv(read_chars(io, string_len), string_len);
+	RETVALUE = newSVpv(io_read_chars(io, string_len), string_len);
 	//SvUTF8_on(RETVALUE);
 
 	return RETVALUE;
-//	return read_PV(io, string_len);
+//	return io_read_PV(io, string_len);
 }
 
-inline SV * parse_object(struct io_struct * io){
+inline SV * parse_object(pTHX_ struct io_struct * io){
 	HV * obj;
 	int len_next;
 	char * key;
@@ -841,10 +853,10 @@ inline SV * parse_object(struct io_struct * io){
 	obj =  newHV();
 	av_push(io->refs, newRV_noinc((SV *) obj));
 	while(1){
-		len_next = read_u16(io);
+		len_next = io_read_u16(io);
 		if (len_next == 0) {
 			char object_end;
-			object_end= read_marker(io);
+			object_end= io_read_marker(io);
 			if ((object_end == MARKER0_OBJECT_END))
 			{
 				return (SV*) newRV_inc((SV*)obj);
@@ -852,42 +864,42 @@ inline SV * parse_object(struct io_struct * io){
 			else {
 				io->pos--;
 				key = "";
-				value = parse_one(io);
+				value = parse_one(aTHX_  io);
 				//PerlIO_printf( PerlIO_stderr(), "end object marker is %d\n", (int)object_end);
 			}
 		}
 		else {
-			key = read_chars(io, len_next);
-			value = parse_one(io);
+			key = io_read_chars(io, len_next);
+			value = parse_one(aTHX_  io);
 		}
 		
 		(void) hv_store(obj, key, len_next, value, 0);
 	}
 }
 
-inline SV* parse_movieclip(struct io_struct *io){
+inline SV* parse_movieclip(pTHX_ struct io_struct *io){
 	SV* RETVALUE;
 	io->message = "Movie clip unsupported yet";
 	RETVALUE = newSV(0);
 	return RETVALUE;
 }
-inline SV* parse_null(struct io_struct *io){
+inline SV* parse_null(pTHX_ struct io_struct *io){
 	SV* RETVALUE;
 	RETVALUE = newSV(0);
 	return RETVALUE;
 }
 
-inline SV* parse_undefined(struct io_struct *io){
+inline SV* parse_undefined(pTHX_ struct io_struct *io){
 	SV* RETVALUE;
 	RETVALUE = newSV(0);
 	return RETVALUE;
 }
 
-inline SV* parse_reference(struct io_struct *io){
+inline SV* parse_reference(pTHX_ struct io_struct *io){
 	SV* RETVALUE;
 	int object_offset;
 	AV * ar_refs;
-	object_offset = read_u16(io);
+	object_offset = io_read_u16(io);
 	ar_refs = (AV *) io->refs;
 	if (object_offset > av_len(ar_refs)){
 		io_register_error(io, ERR_REF);
@@ -901,12 +913,12 @@ inline SV* parse_reference(struct io_struct *io){
 	return RETVALUE;
 }
 
-inline SV* parse_object_end(struct io_struct *io){
-	read_marker(io);
+inline SV* parse_object_end(pTHX_ struct io_struct *io){
+	io_read_marker(io);
 	return 0;
 }
 
-inline SV* parse_strict_array(struct io_struct *io){
+inline SV* parse_strict_array(pTHX_ struct io_struct *io){
 	SV* RETVALUE;
 	int array_len;
 	AV* this_array;
@@ -914,20 +926,20 @@ inline SV* parse_strict_array(struct io_struct *io){
 	int i;
 
 	refs = (AV*) io->refs;
-	array_len = read_u32(io);
+	array_len = io_read_u32(io);
 	this_array = newAV();
 	av_extend(this_array, array_len);
 	av_push(refs, newRV_noinc((SV*) this_array));
 			
 	for(i=0; i<array_len; ++i){
-		av_push(this_array, parse_one(io));
+		av_push(this_array, parse_one(aTHX_  io));
 	}
 	RETVALUE = newRV_inc((SV*) this_array);
 	
 	return RETVALUE;
 }
 
-inline SV* parse_ecma_array(struct io_struct *io){
+inline SV* parse_ecma_array(pTHX_ struct io_struct *io){
 	SV* RETVALUE;
 
 	int array_len;
@@ -940,7 +952,7 @@ inline SV* parse_ecma_array(struct io_struct *io){
 	int av_refs_len;
 	int key_len;
 	char *key_ptr;
-	array_len = read_u32(io);
+	array_len = io_read_u32(io);
 	position= io_position(io);
 
 	this_array = newAV();
@@ -954,38 +966,57 @@ inline SV* parse_ecma_array(struct io_struct *io){
     fprintf( stderr, "position %d\n", io_position(io));
     #endif
 	if (0 < array_len){
-		key_len = read_u16(io);
-		key_ptr = read_chars(io, key_len);
-		if (key_len == 1) {
-			UV index;
-			if ((IS_NUMBER_IN_UV & grok_number(key_ptr, key_len, &index)) &&
-				 (index < array_len)){
-				av_store(this_array, index, parse_one(io));
-				for(i=1; i<array_len; ++i){
-					UV index;
-					int key_len= read_u16(io);
-					char *s = read_chars(io, key_len);
+        bool ok;
+        UV index;
+		key_len = io_read_u16(io);
+		key_ptr = io_read_chars(io, key_len);
+          
 
-                    #ifdef TRACEA
-                    fprintf( stderr, "index =%d, position %d\n", i, io_position(io));
-                    #endif
-					if ((IS_NUMBER_IN_UV & grok_number(s, key_len, &index)) &&
-						 (index < array_len)){
-						av_store(this_array, index, parse_one(io));
-					}
-					else {
-						io_move_backward(io, key_len + 2);
-						break;
+        ok = ((key_len == 1) && (IS_NUMBER_IN_UV & grok_number(key_ptr, key_len, &index)) &&	 (index < array_len ));
+        if (ok){
+            av_store(this_array, index, parse_one(aTHX_  io));
+        }
+        else {
+            if (((key_len) == 6  || strnEQ(key_ptr, "length", 6)==1)){
+                ok = 1;
+                array_len++; // safe for flash v.9.0
+                sv_2mortal( parse_one(aTHX_  io));
+            }
+            else {
+                ok = 0;
+            }
+        }
+        if (ok){ 
+            for(i=1; i<array_len; ++i){
+                UV index;
+                int key_len= io_read_u16(io);
+                char *s = io_read_chars(io, key_len);
 
-					}
-				}
-			}
-			else {
-				io_move_backward(io, key_len + 2);
-			}
-
-		}
-
+                #ifdef TRACEA
+                fprintf( stderr, "index =%d, position %d\n", i, io_position(io));
+                #endif
+                if ((IS_NUMBER_IN_UV & grok_number(s, key_len, &index)) &&
+                     (index < array_len)){
+                    av_store(this_array, index, parse_one(aTHX_  io));
+                #ifdef TRACEA
+                fprintf( stderr, "index =%d, position %d\n", i, io_position(io));
+                #endif
+                }
+                else {
+                    if ((key_len) != 6  || strnEQ(key_ptr, "length", 6)!=0){
+                        io_move_backward(io, key_len + 2);
+                        break;
+                    }
+                    else {
+                        array_len++;
+                        sv_2mortal( parse_one(aTHX_  io));
+                    }
+                }
+            }
+        }
+        else {
+            io_move_backward(io, key_len + 2);
+        }
 	}
 	
 	
@@ -993,8 +1024,8 @@ inline SV* parse_ecma_array(struct io_struct *io){
 	fprintf( stderr, "almost at end parse array %d\n", array_len);
     fprintf( stderr, "position %d\n", io_position(io));
     #endif
-	last_len = read_u16(io);
-	last_marker = read_marker(io);
+	last_len = io_read_u16(io);
+	last_marker = io_read_marker(io);
     #ifdef TRACEA
 	fprintf( stderr, "at end parse array %d\n", array_len);
     fprintf( stderr, "position %d\n", io_position(io));
@@ -1010,17 +1041,17 @@ inline SV* parse_ecma_array(struct io_struct *io){
 			sv_2mortal(ref);
 		}
 		io_set_position(io, position);
-		RETVALUE = parse_object(io);
+		RETVALUE = parse_object(aTHX_  io);
 	}
 	return RETVALUE;
 }
 
-inline SV* parse_date(struct io_struct *io){
+inline SV* parse_date(pTHX_ struct io_struct *io){
 	SV* RETVALUE;
 	double time;
 	int tz;
-	time = read_double(io);
-	tz = read_s16(io);
+	time = io_read_double(io);
+	tz = io_read_s16(io);
 	RETVALUE = newSVnv(time);
 	//PerlIO_printf( PerlIO_stderr() , "date %g\n", time);
 	av_push(io->refs, RETVALUE);
@@ -1029,91 +1060,91 @@ inline SV* parse_date(struct io_struct *io){
 	return RETVALUE;
 }
 
-inline SV* parse_long_string(struct io_struct *io){
+inline SV* parse_long_string(pTHX_ struct io_struct *io){
 	SV* RETVALUE;
 	STRLEN len;
-	len = read_u32(io);
+	len = io_read_u32(io);
 		
-	RETVALUE = newSVpvn(read_chars(io, len), len);
+	RETVALUE = newSVpvn(io_read_chars(io, len), len);
 	//SvUTF8_on(RETVALUE);
 	return RETVALUE;
 }
 
-inline SV* parse_unsupported(struct io_struct *io){
+inline SV* parse_unsupported(pTHX_ struct io_struct *io){
     io_register_error(io, ERR_UNIMPLEMENTED);
 }
-inline SV* parse_recordset(struct io_struct *io){
+inline SV* parse_recordset(pTHX_ struct io_struct *io){
     io_register_error(io, ERR_UNIMPLEMENTED);
 }
-inline SV* parse_xml_document(struct io_struct *io){
+inline SV* parse_xml_document(pTHX_ struct io_struct *io){
 	SV* RETVALUE;
-	RETVALUE = parse_long_string(io);
+	RETVALUE = parse_long_string(aTHX_  io);
 	SvREFCNT_inc_simple_void_NN(RETVALUE);
 	av_push(io->refs, RETVALUE);
 	return RETVALUE;
 }
-inline SV* parse_typed_object(struct io_struct *io){
+inline SV* parse_typed_object(pTHX_ struct io_struct *io){
 	SV* RETVALUE;
 	HV *stash;
 	int len;
 
-	len = read_u16(io);
+	len = io_read_u16(io);
 	stash = gv_stashpvn(io->pos, len, GV_ADD);
 	io->pos+=len;
-	RETVALUE = parse_object(io);
+	RETVALUE = parse_object(aTHX_  io);
 	sv_bless(RETVALUE, stash);
 	return RETVALUE;
 }
-inline SV* parse_double(struct io_struct * io){
-	return newSVnv(read_double(io));
+inline SV* parse_double(pTHX_ struct io_struct * io){
+	return newSVnv(io_read_double(io));
 }
 
-inline SV* parse_boolean(struct io_struct * io){
+inline SV* parse_boolean(pTHX_ struct io_struct * io){
 	char marker;
-	marker = read_marker(io);
+	marker = io_read_marker(io);
 	return newSViv(marker == '\000' ? 0 :1);
 }
 
-inline SV * amf3_parse_one(struct io_struct *io);
-SV * amf3_parse_undefined (struct io_struct *io){
+inline SV * amf3_parse_one(pTHX_ struct io_struct *io);
+SV * amf3_parse_undefined(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 	RETVALUE = newSV(0);
 	return RETVALUE;
 }
-SV * amf3_parse_null (struct io_struct *io){
+SV * amf3_parse_null(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 	RETVALUE = newSV(0);
 	return RETVALUE;
 }
-SV * amf3_parse_false (struct io_struct *io){
+SV * amf3_parse_false(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 	RETVALUE = newSViv(0);
 	return RETVALUE;
 }
 
-SV * amf3_parse_true (struct io_struct *io){
+SV * amf3_parse_true(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 	RETVALUE = newSViv(1);
 	return RETVALUE;
 }
-SV * amf3_parse_integer (struct io_struct *io){
+SV * amf3_parse_integer(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 	RETVALUE = newSViv(amf3_read_integer(io));
 	return RETVALUE;
 }
-SV * amf3_parse_double (struct io_struct *io){
+SV * amf3_parse_double(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
-	RETVALUE = newSVnv(read_double(io));
+	RETVALUE = newSVnv(io_read_double(io));
 	return RETVALUE;
 }
-inline char * amf3_read_string( struct io_struct *io, int ref_len, STRLEN *str_len){
+inline char * amf3_read_string(pTHX_ struct io_struct *io, int ref_len, STRLEN *str_len){
 
 	AV * arr_string = io->arr_string;
 	if (ref_len & 1) {
 		*str_len = ref_len >> 1;
 		if (*str_len>0){
 			char *pstr;
-			pstr = read_chars(io, *str_len);
+			pstr = io_read_chars(io, *str_len);
 			av_push(io->arr_string, newSVpvn(pstr, *str_len));
 			return pstr;
 		}
@@ -1135,30 +1166,30 @@ inline char * amf3_read_string( struct io_struct *io, int ref_len, STRLEN *str_l
 		}
 	}
 }
-SV * amf3_parse_string (struct io_struct *io){
+SV * amf3_parse_string(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 	int ref_len;
 	STRLEN plen;
 	char* pstr;
 	ref_len  = amf3_read_integer(io);
-	pstr = amf3_read_string(io, ref_len, &plen);
+	pstr = amf3_read_string(aTHX_  io, ref_len, &plen);
 //	PerlIO_printf( PerlIO_stderr(), "A(%s, %d, %d)\n", pstr, plen, ref_len);
 	RETVALUE = newSVpvn(pstr, plen);
 	//SvUTF8_on(RETVALUE);
 	return RETVALUE;
 }
-SV * amf3_parse_xml(struct io_struct *io);
-SV * amf3_parse_xml_doc (struct io_struct *io){
+SV * amf3_parse_xml(pTHX_ struct io_struct *io);
+SV * amf3_parse_xml_doc(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 //	io_register_error(io, ERR_UNIMPLEMENTED);
-	RETVALUE = amf3_parse_xml(io);
+	RETVALUE = amf3_parse_xml(aTHX_  io);
 	return RETVALUE;
 }
-SV * amf3_parse_date (struct io_struct *io){
+SV * amf3_parse_date(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 	int i = amf3_read_integer(io);
 	if (i&1){
-		double x = read_double(io);
+		double x = io_read_double(io);
 		RETVALUE = newSVnv(x);
 		SvREFCNT_inc(RETVALUE);
 		av_push(io->arr_object, RETVALUE);
@@ -1177,12 +1208,12 @@ SV * amf3_parse_date (struct io_struct *io){
 }
 
 
-inline void amf3_store_object(struct io_struct *io, SV * item){
+inline void amf3_store_object(pTHX_ struct io_struct *io, SV * item){
 	//PerlIO_printf( PerlIO_stderr(), "store ref %p %d %p\n", io->arr_object, io->rc_object, item);
 	av_push(io->arr_object, newRV_noinc(item));
 }
 
-SV * amf3_parse_array (struct io_struct *io){
+SV * amf3_parse_array(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 	int ref_len = amf3_read_integer(io);
 	if (ref_len & 1){
@@ -1203,30 +1234,30 @@ SV * amf3_parse_array (struct io_struct *io){
 		str_len = amf3_read_integer(io);
 		old_vlen = str_len;
 
-        io_savepoint(io, &rec_point);		
+        io_savepoint(aTHX_  io, &rec_point);		
 
         // Пытаемся востановить как массив 
         // Считаем что это массив если первый индекс от 0 до 9 и все индексы числовые
         //
 		array=newAV();
 		item = (SV *) array;
-		amf3_store_object(io, item);
+		amf3_store_object(aTHX_  io, item);
 
 		
 		recover = FALSE;
         if (str_len !=1){
-            pstr = amf3_read_string(io, str_len, &plen);
+            pstr = amf3_read_string(aTHX_  io, str_len, &plen);
             if (IS_NUMBER_IN_UV & grok_number(pstr, plen, &item_index) && item_index< 10){
 
-                item_value= amf3_parse_one(io);
+                item_value= amf3_parse_one(aTHX_  io);
                 av_store(array, item_index, item_value);
 
                 str_len = amf3_read_integer(io);
                 while(str_len != 1){
-                    pstr = amf3_read_string(io, str_len, &plen);
+                    pstr = amf3_read_string(aTHX_  io, str_len, &plen);
                     if (IS_NUMBER_IN_UV & grok_number(pstr, plen, &item_index)){
 
-                        item_value= amf3_parse_one(io);
+                        item_value= amf3_parse_one(aTHX_  io);
                         av_store(array, item_index, item_value);
                         
                         str_len = amf3_read_integer(io);
@@ -1247,7 +1278,7 @@ SV * amf3_parse_array (struct io_struct *io){
 		if (!recover) {
 			int i;
             for(i=0; i< len; ++i){
-                av_store(array, i, amf3_parse_one(io));
+                av_store(array, i, amf3_parse_one(aTHX_  io));
 			};
             RETVALUE = newRV_inc(item);
 		}
@@ -1259,23 +1290,23 @@ SV * amf3_parse_array (struct io_struct *io){
 			char buf[2+2*sizeof(int)];
 			int i;
 
-			io_restorepoint(io, &rec_point);	
+			io_restorepoint(aTHX_  io, &rec_point);	
 
 			str_len = old_vlen;
             hv   = newHV();
 			item = (SV *) hv;
-			amf3_store_object(io, item);
+			amf3_store_object(aTHX_  io, item);
 			while(str_len != 1){
 				SV *one;
-				pstr = amf3_read_string(io, str_len, &plen);
-				one = amf3_parse_one(io);
+				pstr = amf3_read_string(aTHX_  io, str_len, &plen);
+				one = amf3_parse_one(aTHX_  io);
 				(void) hv_store(hv, pstr, plen, one, 0);
 				str_len = amf3_read_integer(io);
 			
 			};
 			for(i=0; i<len;++i){
 				(void) sprintf(buf, "%d", i);
-				(void) hv_store(hv, buf, strlen(buf), amf3_parse_one(io), 0);
+				(void) hv_store(hv, buf, strlen(buf), amf3_parse_one(aTHX_  io), 0);
 			}
             RETVALUE = newRV_inc(item);
 		}
@@ -1297,7 +1328,7 @@ struct amf3_trait_struct{
 	SV* class_name;
 	HV* stash;
 };
-SV * amf3_parse_object (struct io_struct *io){
+SV * amf3_parse_object(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 	int obj_ref = amf3_read_integer(io);
     #ifdef TRACE0
@@ -1341,7 +1372,7 @@ SV * amf3_parse_object (struct io_struct *io){
                 sealed  = obj_ref >>4;
                 dynamic = obj_ref & 8;
                 //fprintf( stderr, "Undo 1.0 %d\n", 7&obj_ref);
-                class_name_sv = amf3_parse_string(io);
+                class_name_sv = amf3_parse_string(aTHX_  io);
                 //class_name = SvPV(class_name_sv, class_name_len);
                 
                 //PerlIO_printf( PerlIO_stderr(), "A(%d, %d, %d, %s)\n", sealed, dynamic, class_name_len, class_name);
@@ -1354,7 +1385,7 @@ SV * amf3_parse_object (struct io_struct *io){
                 for(i =0; i<sealed; ++i){
                     SV * prop_name;
 
-                    prop_name = amf3_parse_string(io);
+                    prop_name = amf3_parse_string(aTHX_  io);
                     av_push(trait, prop_name);
                 }			
                 // fprintf( stderr, "Undo 1.2 %d position %d sealed %d\n", 7&obj_ref, io_position(io),  sealed);
@@ -1366,10 +1397,10 @@ SV * amf3_parse_object (struct io_struct *io){
         }
 		one = newHV();
 		//av_push(io->arr_object, newRV_noinc((SV*)one));
-		amf3_store_object(io, (SV*)one);
+		amf3_store_object(aTHX_  io, (SV*)one);
 
 		for(i=0; i<sealed; ++i){
-			(void) hv_store_ent( one, *av_fetch(trait, 4+i, 0), amf3_parse_one(io), 0);	
+			(void) hv_store_ent( one, *av_fetch(trait, 4+i, 0), amf3_parse_one(aTHX_  io), 0);	
 		};
 
 		if (dynamic) {
@@ -1379,17 +1410,17 @@ SV * amf3_parse_object (struct io_struct *io){
             // fprintf( stderr, "Undo 3 %d %d\n", 7&obj_ref, io_position(io));
 			varlen = amf3_read_integer(io);
             // fprintf( stderr, "Undo 3 %d %d\n", 7&obj_ref, io_position(io));
-			pstr = amf3_read_string(io, varlen, &plen);
+			pstr = amf3_read_string(aTHX_  io, varlen, &plen);
             // fprintf( stderr, "Undo 3 %d %d\n", 7&obj_ref, io_position(io));
 
             while(plen != 0) { 
-                (void) hv_store(one, pstr, plen, amf3_parse_one(io), 0);				
+                (void) hv_store(one, pstr, plen, amf3_parse_one(aTHX_  io), 0);				
                 varlen = -1;
                 plen = -1;
                 // fprintf( stderr, "Before int\n");
                 varlen = amf3_read_integer(io);
                 // fprintf( stderr, "Before str\n");
-                pstr = amf3_read_string(io, varlen, &plen);
+                pstr = amf3_read_string(aTHX_  io, varlen, &plen);
                 // fprintf( stderr, "after str\n");
                 }
         }
@@ -1411,7 +1442,7 @@ SV * amf3_parse_object (struct io_struct *io){
 	}
 	return RETVALUE;
 }
-SV * amf3_parse_xml (struct io_struct *io){
+SV * amf3_parse_xml(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 	int Bi = amf3_read_integer(io);
 	if (Bi & 1) { // value
@@ -1432,7 +1463,7 @@ SV * amf3_parse_xml (struct io_struct *io){
 	}
 	return RETVALUE;
 }
-SV * amf3_parse_bytearray (struct io_struct *io){
+SV * amf3_parse_bytearray(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
 	int Bi = amf3_read_integer(io);
 	if (Bi & 1) { // value
@@ -1453,27 +1484,34 @@ SV * amf3_parse_bytearray (struct io_struct *io){
 	}
 	return RETVALUE;
 }
-inline void amf3_format_one(struct io_struct *io, SV * one);
-inline void amf3_format_integer(struct io_struct *io, SV *one){
+inline void amf3_format_one(pTHX_ struct io_struct *io, SV * one);
+inline void amf3_format_integer(pTHX_ struct io_struct *io, SV *one){
 	
-	write_marker(io, MARKER3_INTEGER);
-	amf3_write_integer(io, SvIV(one));
+    IV i = SvIV(one);
+    if (i <= 0x3fffffff && i>= -(0x3fffffff)){
+        io_write_marker(aTHX_  io, MARKER3_INTEGER);
+        amf3_write_integer(aTHX_  io, SvIV(one));
+    }
+    else {
+        io_write_marker(aTHX_  io, MARKER3_DOUBLE);
+        io_write_double(aTHX_  io, (double) i);
+    }
 }
 
-inline void amf3_format_double(struct io_struct * io, SV *one){
+inline void amf3_format_double(pTHX_ struct io_struct * io, SV *one){
 	
-	write_marker(io, MARKER3_DOUBLE);
-	write_double(io, SvNV(one));
+	io_write_marker(aTHX_  io, MARKER3_DOUBLE);
+	io_write_double(aTHX_  io, SvNV(one));
 }
 
-inline void amf3_format_undef(struct io_struct *io){
-	write_marker( io, MARKER3_UNDEF);
+inline void amf3_format_undef(pTHX_ struct io_struct *io){
+	io_write_marker(aTHX_  io, MARKER3_UNDEF);
 }
-inline void amf3_format_null(struct io_struct *io){
-	write_marker( io, MARKER3_NULL);
+inline void amf3_format_null(pTHX_ struct io_struct *io){
+	io_write_marker(aTHX_  io, MARKER3_NULL);
 }
 
-inline void amf3_write_string_pvn(struct io_struct *io, char *pstr, STRLEN plen){
+inline void amf3_write_string_pvn(pTHX_ struct io_struct *io, char *pstr, STRLEN plen){
 	HV* rhv;
 	SV ** hv_item;
 
@@ -1483,55 +1521,55 @@ inline void amf3_write_string_pvn(struct io_struct *io, char *pstr, STRLEN plen)
 	//PerlIO_printf( PerlIO_stderr(), "Format string: %s(%d)\n", p,plen );
 	if (hv_item && SvOK(*hv_item)){
 		int sref = SvIV(*hv_item);
-		amf3_write_integer( io, sref <<1);
+		amf3_write_integer(aTHX_  io, sref <<1);
 	}
 	else {
 		if (plen) {
 			//PerlIO_printf(PerlIO_stderr(), "FFF%d \n", (plen <<1) |1);
-			amf3_write_integer( io, (plen << 1)	| 1);
-			write_bytes(io, pstr, plen);
+			amf3_write_integer(aTHX_  io, (plen << 1)	| 1);
+			io_write_bytes(aTHX_  io, pstr, plen);
 			(void) hv_store(rhv, pstr, plen, newSViv(io->rc_string), 0);
 			io->rc_string++;
 		}
 		else {
-			write_marker(io, STR_EMPTY);
+			io_write_marker(aTHX_  io, STR_EMPTY);
 		}
 	}
 }
 
-inline void amf3_format_string(struct io_struct *io, SV *one){
+inline void amf3_format_string(pTHX_ struct io_struct *io, SV *one){
 	char *pstr;
 	STRLEN plen;
 	pstr = SvPV(one, plen);
-	write_marker(io, MARKER3_STRING);
-	amf3_write_string_pvn(io, pstr, plen);
+	io_write_marker(aTHX_  io, MARKER3_STRING);
+	amf3_write_string_pvn(aTHX_  io, pstr, plen);
 }
 
-inline void amf3_format_reference(struct io_struct *io, SV *num){
-	amf3_write_integer(io, SvIV(num)<<1);
+inline void amf3_format_reference(pTHX_ struct io_struct *io, SV *num){
+	amf3_write_integer(aTHX_  io, SvIV(num)<<1);
 }
 
-inline void amf3_format_array(struct io_struct *io, AV * one){
+inline void amf3_format_array(pTHX_ struct io_struct *io, AV * one){
     int alen;
     int i;
     SV ** aitem;
-	write_marker(io, MARKER3_ARRAY);
+	io_write_marker(aTHX_  io, MARKER3_ARRAY);
 	alen = av_len(one)+1;
-	amf3_write_integer(io, 1 | (alen) <<1 );
-	write_marker(io, STR_EMPTY); // no sparse array;
+	amf3_write_integer(aTHX_  io, 1 | (alen) <<1 );
+	io_write_marker(aTHX_  io, STR_EMPTY); // no sparse array;
 	//PerlIO_printf(PerlIO_stderr(), "array len=%d\n", alen);
 	for( i = 0; i<alen ; ++i){
 		aitem = av_fetch(one, i, 0);
 		if (aitem) {
-			amf3_format_one(io, *aitem);
+			amf3_format_one(aTHX_  io, *aitem);
 		}
 		else {
 			//PerlIO_printf(PerlIO_stderr(), "Null at index %d\n", i);
-			write_marker(io, MARKER3_NULL);
+			io_write_marker(aTHX_  io, MARKER3_NULL);
 		}
 	}
 }
-inline void amf3_format_object(struct io_struct *io, HV * one){
+inline void amf3_format_object(pTHX_ struct io_struct *io, HV * one){
 	// int alen;
 	// int i;
 	// SV ** aitem;
@@ -1540,7 +1578,7 @@ inline void amf3_format_object(struct io_struct *io, HV * one){
 	char *class_name;
 	int class_name_len;
 	
-	write_marker(io, MARKER3_OBJECT);
+	io_write_marker(aTHX_  io, MARKER3_OBJECT);
 	if (sv_isobject((SV*)one)){
 		HV* stash = SvSTASH(one);
 		char *class_name = HvNAME(stash);
@@ -1558,7 +1596,7 @@ inline void amf3_format_object(struct io_struct *io, HV * one){
 		trait = (AV *) SvRV(*rv_trait);	
 		ref_trait = SvIV( *av_fetch(trait, 1, 0));
 		
-		amf3_write_integer(io, (ref_trait<< 2) | 1);		
+		amf3_write_integer(aTHX_  io, (ref_trait<< 2) | 1);		
 	}
 	else {
 		SV * class_name_sv;
@@ -1570,8 +1608,8 @@ inline void amf3_format_object(struct io_struct *io, HV * one){
 		av_store(trait, 1, newSViv(io->rc_trait));
 		av_store(trait, 2, newSViv(0));
 		
-		amf3_write_integer(io, ( 0 << 4) | 0x0b );
-		amf3_write_string_pvn(io, class_name, class_name_len);
+		amf3_write_integer(aTHX_  io, ( 0 << 4) | 0x0b );
+		amf3_write_string_pvn(aTHX_  io, class_name, class_name_len);
 		io->rc_trait++;
 
 	}
@@ -1591,15 +1629,15 @@ inline void amf3_format_object(struct io_struct *io, HV * one){
 		hv_iterinit(hv);
 		while(value  = hv_iternextsv(hv, &key_str, &key_len)){
 			if (key_len){
-				amf3_write_string_pvn(io, key_str, key_len);
-				amf3_format_one(io, value);
+				amf3_write_string_pvn(aTHX_  io, key_str, key_len);
+				amf3_format_one(aTHX_  io, value);
 			};
 		}
 	}
 	
-	write_marker(io, STR_EMPTY); 
+	io_write_marker(aTHX_  io, STR_EMPTY); 
 }
-inline void amf3_format_one(struct io_struct *io, SV * one){
+inline void amf3_format_one(pTHX_ struct io_struct *io, SV * one){
 	
 	if (SvROK(one)){
 		SV * rv = (SV*) SvRV(one);
@@ -1608,12 +1646,12 @@ inline void amf3_format_one(struct io_struct *io, SV * one){
 		if (SvOK(*OK)) {
 			//PerlIO_printf( PerlIO_stderr(),"old reference %d\n", SvIV(*OK));
 			if (SvTYPE(rv) == SVt_PVAV) {
-				write_marker(io, MARKER3_ARRAY);
-				amf3_format_reference(io, *OK);
+				io_write_marker(aTHX_  io, MARKER3_ARRAY);
+				amf3_format_reference(aTHX_  io, *OK);
 			}
 			else if (SvTYPE(rv) == SVt_PVHV){
-				write_marker(io, MARKER3_OBJECT);
-				amf3_format_reference(io, *OK);
+				io_write_marker(aTHX_  io, MARKER3_OBJECT);
+				amf3_format_reference(aTHX_  io, *OK);
 			}
 			else {
 				io_register_error(io, ERR_BAD_OBJECT);
@@ -1626,9 +1664,9 @@ inline void amf3_format_one(struct io_struct *io, SV * one){
 			//PerlIO_printf( PerlIO_stderr(),"new reference %d\n", SvIV(*OK));
 
 			if (SvTYPE(rv) == SVt_PVAV) 
-				amf3_format_array(io, (AV*) rv);
+				amf3_format_array(aTHX_  io, (AV*) rv);
 			else if (SvTYPE(rv) == SVt_PVHV) {
-				amf3_format_object(io, (HV*) rv);
+				amf3_format_object(aTHX_  io, (HV*) rv);
 			}
 			else {
 				io->message = "bad type of object in stream";
@@ -1639,21 +1677,21 @@ inline void amf3_format_one(struct io_struct *io, SV * one){
 	else {
 		if (SvOK(one)){
             if (SvPOK(one)) {
-				amf3_format_string(io, one);
+				amf3_format_string(aTHX_  io, one);
             } else 
 			if (SvIOKp(one)){
-				amf3_format_integer(io, one);
+				amf3_format_integer(aTHX_  io, one);
 			}
 			else if (SvNOKp(one)){
-				amf3_format_double(io, one);
+				amf3_format_double(aTHX_  io, one);
 			}
 		}
 		else {
-			amf3_format_null(io);
+			amf3_format_null(aTHX_  io);
 		}
 	}
 }
-typedef SV* (*parse_sub)(struct io_struct *io);
+typedef SV* (*parse_sub)(pTHX_ struct io_struct *io);
 
 
 parse_sub parse_subs[] = {
@@ -1692,42 +1730,42 @@ parse_sub amf3_parse_subs[] = {
 	&amf3_parse_bytearray,
 };
 
-inline SV * amf3_parse_one(struct io_struct * io){
+inline SV * amf3_parse_one(pTHX_ struct io_struct * io){
 	unsigned char marker;
 
-	marker = (unsigned char) read_marker(io);
+	marker = (unsigned char) io_read_marker(io);
 	if (marker < (sizeof amf3_parse_subs)/sizeof( amf3_parse_subs[0])){
 		//PerlIO_printf( PerlIO_stderr(), "marker = %d\n", marker);
-		return (amf3_parse_subs[marker])(io);
+		return (amf3_parse_subs[marker])(aTHX_ io);
 	}
 	else {
 		io_register_error(io, ERR_MARKER);
 	}
 }
-inline SV * parse_one(struct io_struct * io){
+inline SV * parse_one(pTHX_ struct io_struct * io){
 	unsigned char marker;
 
-	marker = (unsigned char) read_marker(io);
+	marker = (unsigned char) io_read_marker(io);
 	if ( marker < (sizeof parse_subs)/sizeof( parse_subs[0])){
-		return (parse_subs[marker])(io);
+		return (parse_subs[marker])(aTHX_ io);
 	}
 	else {
 		io_register_error(io, ERR_MARKER);
 	}
 }
-SV * deep_clone(SV * value);
-AV * deep_array(AV* value){
+SV * deep_clone(pTHX_ SV * value);
+AV * deep_array(pTHX_ AV* value){
 	AV* copy =  (AV*) newAV();
 	int c_len;
 	int i;
 	av_extend(copy, c_len = av_len(value));
 	for(i = 0; i <= c_len; ++i){
-		av_store(copy, i, deep_clone(*av_fetch(value, i, 0)));
+		av_store(copy, i, deep_clone(aTHX_  *av_fetch(value, i, 0)));
 	}
 	return copy;
 }
 
-HV * deep_hash(HV* value){
+HV * deep_hash(pTHX_ HV* value){
 	HV * copy =  (HV*) newHV();
 	SV * key_value;
 	char * key_str;
@@ -1736,34 +1774,34 @@ HV * deep_hash(HV* value){
 
 	hv_iterinit(value);
 	while(key_value  = hv_iternextsv(value, &key_str, &key_len)){
-		copy_val = deep_clone(key_value);
+		copy_val = deep_clone(aTHX_  key_value);
 		(void) hv_store(copy, key_str, key_len, copy_val, 0);
 	}
 	return copy;
 }
 
-SV * deep_scalar(SV * value){
-	return deep_clone(value);
+SV * deep_scalar(pTHX_ SV * value){
+	return deep_clone(aTHX_  value);
 }
 
-SV * deep_clone(SV * value){
+SV * deep_clone(pTHX_ SV * value){
 	if (SvROK(value)){
 		SV * rv = (SV*) SvRV(value);
 		SV * copy;
 		//PerlIO_printf( PerlIO_stderr(), "type is %s\n", SVt_string(rv));
 		if (SvTYPE(rv) == SVt_PVHV) {
-			copy = newRV_noinc((SV*)deep_hash((HV*) rv));
+			copy = newRV_noinc((SV*)deep_hash(aTHX_  (HV*) rv));
 		}
 		else if (SvTYPE(rv) == SVt_PVAV) {
-			copy = newRV_noinc((SV*)deep_array((AV*) rv));
+			copy = newRV_noinc((SV*)deep_array(aTHX_  (AV*) rv));
 		}
 		else if (SvROK(rv)) {
-			copy = newRV_noinc((SV*)deep_clone((SV*) rv));
+			copy = newRV_noinc((SV*)deep_clone(aTHX_  (SV*) rv));
 		}
 		else {
 			// TODO: error checking
 			//return newSV(0);
-			copy = newRV_noinc(deep_clone(rv));
+			copy = newRV_noinc(deep_clone(aTHX_  rv));
 		}
 		if (sv_isobject(value)) {
 			HV * stash;
@@ -1781,6 +1819,41 @@ SV * deep_clone(SV * value){
 		return copy;
 	}
 }
+void ref_clear(pTHX_ HV * go_once, SV *sv){
+    
+    SV *ref_addr;
+    if (! SvROK(sv))
+        return;
+    ref_addr = SvRV(sv);
+    if (hv_exists(go_once, (char *) &ref_addr, sizeof (ref_addr)))
+        return;
+    (void) hv_store( go_once, (char *) &ref_addr, sizeof(ref_addr), &PL_sv_undef, 0);
+
+    if (SvTYPE(ref_addr) == SVt_PVAV){
+        AV * refarray = (AV*) ref_addr;
+        int ref_len = av_len(refarray);
+        int ref_index;
+        for( ref_index = 0; ref_index <= ref_len; ++ref_index){
+            SV ** ref_item = av_fetch( refarray, ref_index, 0);
+            if (ref_item)
+                ref_clear(aTHX_  go_once, *ref_item);
+        }
+        av_clear(refarray);
+    }
+    else if (SvTYPE(ref_addr) == SVt_PVHV){
+        HV *ref_hash = (HV *) ref_addr;
+        char **   key;
+        I32  *key_len;
+        SV*  item;
+
+        hv_iterinit(ref_hash);
+        while(item = hv_iternextsv(ref_hash, key, key_len)){
+            ref_clear(aTHX_  go_once, item);
+        };
+        hv_clear(ref_hash);
+    }
+}    
+
 
 MODULE = Storable::AMF0 PACKAGE = Storable::AMF0		
 #~ void 
@@ -1800,7 +1873,7 @@ dclone(SV * data)
 	INIT:
 		SV* retvalue;
 	PPCODE:
-		retvalue = deep_clone(data);
+		retvalue = deep_clone(aTHX_  data);
 		sv_2mortal(retvalue);
 		XPUSHs(retvalue);
 
@@ -1814,7 +1887,7 @@ thaw(data)
 		struct io_struct io_record;
 	PPCODE:
 		io_self = newRV_noinc((SV*)newAV());
-		io_in_init(&io_record, io_self, data, AMF0);
+		io_in_init(aTHX_  &io_record, io_self, data, AMF0);
 		sv_2mortal(io_self);
         if (SvMAGICAL(data))
             mg_get(data);
@@ -1827,18 +1900,18 @@ thaw(data)
                 sv_setiv(ERRSV, error_code);
                 sv_setpvf(ERRSV, "Error(code %d) at parse AMF0", error_code);
                 SvIOK_on(ERRSV);
-                io_in_destroy(&io_record, 0); // all obects
+                io_in_destroy(aTHX_  &io_record, 0); // all obects
 
 			}
 			else {
-				retvalue = (SV*) (parse_one(&io_record));
+				retvalue = (SV*) (parse_one(aTHX_  &io_record));
 				retvalue = sv_2mortal(retvalue);
 				if (io_record.pos!=io_record.end){
                     sv_setiv(ERRSV, ERR_EOF);
                     sv_setpvf(ERRSV, "EOF at parse AMF0", ERR_EXTRA_BYTE);
                     SvIOK_on(ERRSV);
                     #sv_dump(io_self);
-                    io_in_destroy(&io_record, 0); // all obects
+                    io_in_destroy(aTHX_  &io_record, 0); // all obects
                     #sv_dump(io_self);
 
 				}
@@ -1866,9 +1939,9 @@ void freeze(data)
 		//#io_self= newSVpvn("",0);
 		io_self= newSV(0);
 		sv_2mortal(io_self);
-		io_out_init(&io_record, 0, AMF0);
+		io_out_init(aTHX_  &io_record, 0, AMF0);
 		if (!(error_code = setjmp(io_record.target_error))){
-			format_one(&io_record, data);
+			format_one(aTHX_  &io_record, data);
             retvalue = sv_2mortal(io_buffer(&io_record));
             XPUSHs(retvalue);
             sv_setsv(ERRSV, &PL_sv_undef);
@@ -1893,7 +1966,7 @@ thaw(data)
 		struct io_struct io_record;
 	PPCODE:
 		io_self = newRV_noinc((SV*)newAV());
-		io_in_init(&io_record, io_self, data, AMF3);
+		io_in_init(aTHX_  &io_record, io_self, data, AMF3);
 		sv_2mortal(io_self);
 		
         if (SvMAGICAL(data))
@@ -1905,17 +1978,17 @@ thaw(data)
                 sv_setiv(ERRSV, error_code);
                 sv_setpvf(ERRSV, "AMF3 parse failed. (Code %d)", error_code);
                 SvIOK_on(ERRSV);
-                io_in_destroy(&io_record, 0);
+                io_in_destroy(aTHX_  &io_record, 0);
 
 			}
 			else {
-				retvalue = (SV*) (amf3_parse_one(&io_record));
+				retvalue = (SV*) (amf3_parse_one(aTHX_  &io_record));
                 sv_2mortal(retvalue);
 				if (io_record.pos!=io_record.end){
                     sv_setiv(ERRSV, ERR_EOF);
                     sv_setpvf(ERRSV, "AMF3 thaw  failed. EOF at parse (Code %d)", ERR_EOF);
                     SvIOK_on(ERRSV);
-                    io_in_destroy(&io_record, 0);
+                    io_in_destroy(aTHX_  &io_record, 0);
                     
 				}
                 else {
@@ -1938,9 +2011,9 @@ void freeze(data)
 		int error_code;
 	PPCODE:
 		io_self= newSV(0);
-		io_out_init(&io_record, 0, AMF3);
+		io_out_init(aTHX_  &io_record, 0, AMF3);
 		if (!(error_code = setjmp(io_record.target_error))){
-			amf3_format_one(&io_record, data);
+			amf3_format_one(aTHX_  &io_record, data);
             sv_2mortal(io_self);
             retvalue = sv_2mortal(io_buffer(&io_record));
             XPUSHs(retvalue);

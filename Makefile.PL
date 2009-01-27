@@ -4,7 +4,8 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
 
-my $DEFINE = "-D${ENDIAN}_END";
+#my $DEFINE = "-D${ENDIAN}_END";
+my $DEFINE = "-D${ENDIAN}_END  -D_REENTRANT -D_GNU_SOURCE";
 if ($Config{osname} eq 'MSWin32'){
             $DEFINE.=" -DMSWin32";
             system "perl", qw( -ibak -p -e), "s/^\s*inline\s*//", "AMF.xs";
@@ -34,7 +35,7 @@ our %MyModule= (
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Storable/AMF.pm', # retrieve abstract from module
        AUTHOR         => 'Grishaev Anatoliy  <grian@cpan.org>') : ()),
-    LIBS              => [''], # e.g., '-lm'
+#    LIBS              => [''], # e.g., '-lm'
     DEFINE            => $DEFINE, # e.g., '-DHAVE_SOMETHING'
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
 	# Un-comment this if you add C files to link with later:

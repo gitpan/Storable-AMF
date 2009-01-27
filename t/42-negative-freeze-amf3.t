@@ -1,7 +1,8 @@
 use ExtUtils::testlib;
 use strict;
 use warnings;
-use Test::More tests=>24;
+no warnings 'once';
+eval 'use Test::More tests=>24';
 use Storable::AMF3 qw(freeze);
 use Data::Dumper;
 

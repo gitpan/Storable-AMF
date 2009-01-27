@@ -1,5 +1,5 @@
 use strict;
-use Test::More tests=>21;
+eval 'use Test::More tests=>21;';
 use warnings;
 
 use Storable::AMF0 qw(freeze thaw);

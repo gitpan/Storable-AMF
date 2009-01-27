@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use ExtUtils::testlib;
 use Storable::AMF0;
-use Test::More tests => 4;
+eval 'use Test::More tests => 4;';
 
 use GrianUtils;
 use File::Spec;

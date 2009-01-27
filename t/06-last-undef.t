@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 use Storable::AMF0;
-use Test::More tests=>1;
+eval 'use Test::More tests=>1;';
 
 my @a;$a[5] =1;
 ok(Storable::AMF0::freeze(\@a));

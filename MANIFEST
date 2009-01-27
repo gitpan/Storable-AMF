@@ -45,6 +45,7 @@ t/46-mem-safe-AMF0.t
 t/47-mem-safe-AMF3.t
 t/48-mem-safe-neg-AMF0.t
 t/49-mem-safe-neg-AMF3.t
+t/50-AMF90-exception.t
 t/AMF0/01-array-0-foo-bar-baz.pack
 t/AMF0/01-array-foo-bar-x2.pack
 t/AMF0/01-boolean-false.pack

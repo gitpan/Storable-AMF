@@ -3,12 +3,12 @@ package Storable::AMF0;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.43';
+our $VERSION = '0.45';
 use subs qw(freeze thaw);
 use Scalar::Util qw(refaddr reftype); # for ref_circled
 
 require Exporter;
-use Carp qw(carp);
+use Carp qw(croak);
 our @ISA = qw(Exporter);
 
 # Items to export into callers namespace by default. Note: do not export
@@ -25,11 +25,12 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
+
 sub retrieve{
 	my $file = shift;
 	open my $fh, "<", $file or die "Can't open file \"$file\" for read.";
 	my $buf;
-	read $fh, $buf, -s $fh;
+	read $fh, $$buf, -s $fh;
 	close($fh);
 	return thaw($buf);
 }
@@ -39,10 +40,10 @@ sub lock_retrieve{
 	open my $fh, "<", $file or die "Can't open file \"$file\" for read.";
 	flock $fh, LOCK_SH;
 	my $buf;
-	read $fh, $buf, -s $fh;
+	read $fh, $$buf, -s $fh;
 	flock $fh, LOCK_UN;
 	close($fh);
-	return thaw($buf);
+	return thaw($$buf);
 }
 sub store{
 	my $object = shift;
@@ -50,10 +51,10 @@ sub store{
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	truncate $fh, 0;
 	#print $fh freeze($object);
-    my $freeze = freeze($object);
-    carp "Bad object" unless defined $freeze;
-	print $fh $freeze if defined $freeze;
-	close($fh) and  defined $freeze;;
+    my $freeze = \ freeze($object);
+    croak "Bad object" unless defined $$freeze;
+	print $fh $$freeze if defined $$freeze;
+	close($fh) and  defined $$freeze;;
 }
 
 sub lock_store{
@@ -63,11 +64,11 @@ sub lock_store{
 	flock $fh, LOCK_EX;
 	truncate $fh, 0;
 	#print $fh freeze($object);
-    my $freeze = freeze($object);
-    carp "Bad object" unless defined $freeze;
-	print $fh $freeze if defined $freeze;
+    my $freeze = \ freeze($object);
+    croak  "Bad object" unless defined $$freeze;
+	print $fh $$freeze if defined $$freeze;
 	flock $fh, LOCK_UN;
-	close($fh) and  defined $freeze;;
+	close($fh) and  defined $$freeze;;
 }
 
 sub nstore{
@@ -76,10 +77,10 @@ sub nstore{
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	truncate $fh, 0;
 	#print $fh freeze($object);
-    my $freeze = freeze($object);
-    carp "Bad object" unless defined $freeze;
-	print $fh $freeze if defined $freeze;
-	close($fh) and  defined $freeze;;
+    my $freeze = \ freeze($object);
+    croak "Bad object" unless defined $$freeze;
+	print $fh $$freeze if defined $$freeze;
+	close($fh) and  defined $$freeze;;
 }
 
 sub lock_nstore{
@@ -88,12 +89,14 @@ sub lock_nstore{
 	open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
 	flock $fh, LOCK_EX;
 	truncate $fh, 0;
-    my $freeze = freeze($object);
-    if ( defined $freeze ) {
-        print $fh $freeze;
+    my $freeze = \ freeze($object);
+    if ( defined $$freeze ) {
+        print $fh $$freeze;
+    } else {
+        croak "Storable::AMF: Bad object"
     };
 	flock $fh, LOCK_UN;
-	close($fh) and  defined $freeze;
+	close($fh) and defined $$freeze;
 }
 
 sub _ref_selfref{
@@ -123,11 +126,6 @@ sub _ref_selfref{
     return ;
 }
 
-sub ref_lost_memory{
-    my $ref = shift;
-    my %obj_addr;
-    return _ref_selfref(\%obj_addr, $ref);
-}
 
 sub ref_destroy{
     my $ref = shift;
@@ -146,9 +144,14 @@ sub ref_destroy{
     }
 }
 
+sub ref_lost_memory{
+    my $ref = shift;
+    my %obj_addr;
+    return _ref_selfref(\%obj_addr, $ref);
+}
 #~ sub dclone{
-#~  	my $object = shift;
-#~  	return thaw(freeze($object));
+#~ 	my $object = shift;
+#~ 	return thaw(treeze $_[0]);
 #~ }
 require XSLoader;
 XSLoader::load('Storable::AMF', $VERSION);
@@ -275,17 +278,17 @@ and can't/ may not serialize tied variables.
 
 =head1 SEE ALSO
 
-L<Data::AMF>, L<Storable>
+L<Data::AMF>, L<Storable>, L<Storable::AMF3>
 
 =head1 AUTHOR
 
-Anatoliy Grishaev, <gtoly@combats.ru>
+Anatoliy Grishaev, <grian at cpan dot org>
 
 =head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2008 by A. G. Grishaev
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.10.0 or,
+it under the same terms as Perl itself, either Perl version 5.8.8 or,
 at your option, any later version of Perl 5 you may have available.
 =cut

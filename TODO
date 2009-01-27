@@ -1,5 +1,3 @@
-	- In function amf3_write_integer (	  think about warning of Integer overflow )  rewrite needed
-	- fix read_s*( rename )
 	- realize readObject, CanRead, 
     - add limit memory behavior (Error message when no mem)
     - Add test for store function
@@ -7,3 +5,4 @@
     - Add descriptive error messages.
     - more documentation on thaw ARRAY, XML
     - Impove testleak for strings
+    - rewrite store, nstore , locknstore, lockstore for ref

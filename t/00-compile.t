@@ -5,14 +5,16 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-BEGIN { 
+no warnings 'once';
+#BEGIN { 
 	$totals =  3;
+    no warnings 'once';
 	eval "use Test::More tests => $totals";
 
 	use_ok('Storable::AMF');
 	use_ok('Storable::AMF0');
 	use_ok('Storable::AMF3');
-	};
+#	};
 #########################
 
 # Insert your test code below, the Test::More module is use()ed here so read
