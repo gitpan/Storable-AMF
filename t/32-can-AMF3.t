@@ -5,24 +5,24 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 my @methods;
-
 use ExtUtils::testlib;
-
-use Storable::AMF;
-use Storable::AMF0;
 use Storable::AMF3;
 use Scalar::Util qw(refaddr);
-@methods = @Storable::AMF::EXPORT_OK;
-$totals = @methods * 3  + 1 * @methods;
+
+@methods = @Storable::AMF3::EXPORT_OK;
+$totals =  @methods*1 + 1;
 eval "use Test::More tests => $totals";
 
-for my $module (qw(Storable::AMF Storable::AMF0 Storable::AMF3)){
+
+for my $module (qw(Storable::AMF3)){
 	ok($module->can($_), "$module can $_") for @methods;
 }
 
-my ($m, $n) = qw(Storable::AMF Storable::AMF0);
-
-is(refaddr $m->can($_), refaddr $n->can($_), "identity for $_") for @methods;
+eval{
+    Storable::AMF3::dclone([]);
+    Storable::AMF3::ref_lost_memory([]);
+};
+ok(!$@, "dclone && ref_lost_memory really defined");
 
 #########################
 

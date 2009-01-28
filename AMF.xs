@@ -3,7 +3,7 @@
 #include "perl.h"
 #include "XSUB.h"
 
-// #include "ppport.h"
+#include "ppport.h"
 #include "setjmp.h"
 
 #define ERR_EOF 1
@@ -906,7 +906,7 @@ inline SV* parse_reference(pTHX_ struct io_struct *io){
 	}
 	else {
 		RETVALUE = *av_fetch(ar_refs, object_offset, 0);
-		//SvREFCNT_inc(RETVALUE);
+		//SvREFCNT_inc_simple_void_NN(RETVALUE);
 		SvREFCNT_inc_simple_void_NN(RETVALUE);
 		//RETVALUE = newRV_inc(SvRV(RETVALUE));	
 	}
@@ -1056,7 +1056,7 @@ inline SV* parse_date(pTHX_ struct io_struct *io){
 	//PerlIO_printf( PerlIO_stderr() , "date %g\n", time);
 	av_push(io->refs, RETVALUE);
 	//SvREFCNT_inc_simple_void_NN(RETVALUE);
-	SvREFCNT_inc(RETVALUE);
+	SvREFCNT_inc_simple_void_NN(RETVALUE);
 	return RETVALUE;
 }
 
@@ -1191,15 +1191,15 @@ SV * amf3_parse_date(pTHX_ struct io_struct *io){
 	if (i&1){
 		double x = io_read_double(io);
 		RETVALUE = newSVnv(x);
-		SvREFCNT_inc(RETVALUE);
-		av_push(io->arr_object, RETVALUE);
-	}
-	else {
-		SV ** item = av_fetch(io->arr_object, i>>1, 0);
-		if (item) {
-			RETVALUE = *item;
-			SvREFCNT_inc(RETVALUE);
-		}
+		SvREFCNT_inc_simple_void_NN(RETVALUE);
+        av_push(io->arr_object, RETVALUE);
+    }
+    else {
+        SV ** item = av_fetch(io->arr_object, i>>1, 0);
+        if (item) {
+            RETVALUE = *item;
+            SvREFCNT_inc_simple_void_NN(RETVALUE);
+        }
 		else{
 			io_register_error(io, ERR_BAD_DATE_REF);
 		}
@@ -1449,7 +1449,7 @@ SV * amf3_parse_xml(pTHX_ struct io_struct *io){
 		int len = Bi>>1;
 		char *b = io_read_bytes(io, len);
 		RETVALUE = newSVpvn(b, len);
-		SvREFCNT_inc(RETVALUE);
+		SvREFCNT_inc_simple_void_NN(RETVALUE);
 		av_push(io->arr_object, RETVALUE);
 	}
 	else {
@@ -1470,7 +1470,7 @@ SV * amf3_parse_bytearray(pTHX_ struct io_struct *io){
 		int len = Bi>>1;
 		char *b = io_read_bytes(io, len);
 		RETVALUE = newSVpvn(b, len);
-		SvREFCNT_inc(RETVALUE);
+		SvREFCNT_inc_simple_void_NN(RETVALUE);
 		av_push(io->arr_object, RETVALUE);
 	}
 	else {

@@ -1,7 +1,6 @@
 package GrianUtils;
 use strict;
 use warnings;
-use Storable::AMF qw() ;
 use Carp qw/carp croak/;
 use Fcntl qw(:flock);
 use File::Spec;
@@ -46,45 +45,6 @@ sub hex_decode{
 	my $class = shift;
 	my $s     = shift;
 	return pack "H*", $s;
-}
-
-sub pg_encode{
-	#return XS::Pg::pg_encode($_[1]);
-}
-
-sub pg_decode{
-	#return XS::Pg::pg_decode($_[1]);
-}
-sub pg_freeze{
-	my $class  = shift;
-	my $object = shift;
-	my $encode    = shift || 'AMF';
-	carp "undefined object" unless defined $object;
-	if ($encode eq 'Storable') {
-		return $class->pg_encode(Storable::freeze $object);
-	}
-	elsif ($encode eq 'AMF') {
-		return Storable::AMF::freeze $object;
-	}
-	else {
-		carp "Unknown encoding at pg_thaw";
-	}
-}
-
-sub pg_thaw{
-	my $class  = shift;
-	my $pg_string = shift;
-	my $encode    = shift || 'AMF';
-	carp "undefined pg_string" unless defined $pg_string;
-	if ($encode eq 'Storable') {
-		return eval {Storable::thaw $class->pg_decode($pg_string) };
-	}
-	elsif ($encode eq 'AMF') {
-		return Storable::AMF::thaw $pg_string;
-	}
-	else {
-		carp "Unknown encoding at pg_thaw";
-	}
 }
 
 sub my_readdir{
@@ -146,7 +106,6 @@ sub _pack{
     @$hash{@fixed_names} = (@fixed);
     return $$s;
 }
-use Storable::AMF0;
 use Data::Dumper;
 sub _unpack{
     my (@fixed, %rest);

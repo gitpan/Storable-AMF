@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Fcntl qw(:flock);
 use Storable::AMF0;
-our $VERSION = '0.45';
+our $VERSION = '0.46';
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -19,8 +19,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
-our @EXPORT = qw(
-);
+our @EXPORT = qw();
 
 no strict 'refs';
 *{"Storable::AMF::$_"} = *{"Storable::AMF0::$_"} for @{$EXPORT_TAGS{'all'}};

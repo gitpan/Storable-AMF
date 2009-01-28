@@ -4,8 +4,8 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
 
-#my $DEFINE = "-D${ENDIAN}_END";
-my $DEFINE = "-D${ENDIAN}_END  -D_REENTRANT -D_GNU_SOURCE";
+my $DEFINE = "-D${ENDIAN}_END";
+#my $DEFINE = "-D${ENDIAN}_END  -D_REENTRANT -D_GNU_SOURCE";
 if ($Config{osname} eq 'MSWin32'){
             $DEFINE.=" -DMSWin32";
             system "perl", qw( -ibak -p -e), "s/^\s*inline\s*//", "AMF.xs";

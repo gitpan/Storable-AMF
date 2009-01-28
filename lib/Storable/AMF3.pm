@@ -3,7 +3,7 @@ package Storable::AMF3;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.45';
+our $VERSION = '0.46';
 use subs qw(freeze thaw);
 
 require Exporter;
@@ -104,8 +104,13 @@ require XSLoader;
 XSLoader::load('Storable::AMF', $VERSION);
 no warnings;
 no strict 'refs';
+use Storable::AMF0;
 #*Storable::AMF3::dclone = *Storable::AMF0::dclone;
+BEGIN{
 *{"Storable::AMF3::$_"} = *{"Storable::AMF0::$_"} for qw(dclone ref_lost_memory ref_destroy);
+#~ print "OK" if __PACKAGE__->can('ref_lost_memory');
+#~ ref_lost_memory([]);
+}
 
 # Preloaded methods go here.
 

@@ -179,5 +179,7 @@ Revision history for Perl extension Storable::AMF.
 	- fix in documentation. 
 	- store and retrieve
 
-0.4500 ( 1040) 2009-01-27 17:07:38 +0300 
-	- Introduce pTHX_ && aTHX_
+0.4600 ( 1049) 2009-01-28 12:29:00 +0300 
+	- back_port to 5.8.8
+	- Find bug AMF3 stupid add test 
+
