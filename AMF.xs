@@ -6,6 +6,10 @@
 #include "ppport.h"
 #include "setjmp.h"
 
+#ifndef PERL_UNUSED_VAR
+#  define PERL_UNUSED_VAR(var) if (0) var = var
+#endif
+
 #define ERR_EOF 1
 #define ERR_REF 2
 #define ERR_MARKER 3
@@ -111,6 +115,7 @@ struct io_struct{
 	int rc_object;
 	int rc_trait;
 	int version;
+    int strict;
 };
 
 inline void io_register_error(struct io_struct *io, int );
@@ -1089,10 +1094,13 @@ inline SV* parse_typed_object(pTHX_ struct io_struct *io){
 	int len;
 
 	len = io_read_u16(io);
-	stash = gv_stashpvn(io->pos, len, GV_ADD);
+	stash = gv_stashpvn(io->pos, len, GV_ADD & io->strict);
+
+
 	io->pos+=len;
 	RETVALUE = parse_object(aTHX_  io);
-	sv_bless(RETVALUE, stash);
+    if (stash) 
+        sv_bless(RETVALUE, stash);
 	return RETVALUE;
 }
 inline SV* parse_double(pTHX_ struct io_struct * io){
@@ -1373,6 +1381,9 @@ SV * amf3_parse_object(pTHX_ struct io_struct *io){
                 dynamic = obj_ref & 8;
                 //fprintf( stderr, "Undo 1.0 %d\n", 7&obj_ref);
                 class_name_sv = amf3_parse_string(aTHX_  io);
+//                 char *class;
+//                 class = SvPV_nolen(class_name_sv);
+//                 fprintf(stderr, "class \"%s\"\n", class);
                 //class_name = SvPV(class_name_sv, class_name_len);
                 
                 //PerlIO_printf( PerlIO_stderr(), "A(%d, %d, %d, %s)\n", sealed, dynamic, class_name_len, class_name);
@@ -1427,8 +1438,14 @@ SV * amf3_parse_object(pTHX_ struct io_struct *io){
         // fprintf( stderr, "Undo 4 %d\n", 7&obj_ref);
 		RETVALUE = newRV_inc((SV*) one);
   		if (SvCUR(class_name_sv)) {
-  			sv_bless(RETVALUE, gv_stashsv(class_name_sv, GV_ADD));
+            HV *stash;
+            stash = gv_stashsv(class_name_sv, GV_ADD & io->strict);
+            if (stash) 
+                sv_bless(RETVALUE, stash);
   		}
+        else {
+            // No bless
+        }
 	}
 	else {
 		SV ** ref = av_fetch(io->arr_object, obj_ref>>1, 0);
@@ -1569,7 +1586,7 @@ inline void amf3_format_array(pTHX_ struct io_struct *io, AV * one){
 		}
 	}
 }
-inline void amf3_format_object(pTHX_ struct io_struct *io, HV * one){
+inline void amf3_format_object(pTHX_ struct io_struct *io, SV * rone){
 	// int alen;
 	// int i;
 	// SV ** aitem;
@@ -1577,14 +1594,19 @@ inline void amf3_format_object(pTHX_ struct io_struct *io, HV * one){
 	SV ** rv_trait;
 	char *class_name;
 	int class_name_len;
+    HV *one;
+    one =(HV *) SvRV(rone);
 	
 	io_write_marker(aTHX_  io, MARKER3_OBJECT);
-	if (sv_isobject((SV*)one)){
+	if (sv_isobject((SV*)rone)){
 		HV* stash = SvSTASH(one);
-		char *class_name = HvNAME(stash);
+		class_name = HvNAME(stash);
 		class_name_len = strlen(class_name);
+        // fprintf( stderr, "Is object %s/%d\n", class_name, class_name_len);
 	}
 	else {
+
+        // fprintf( stderr, "No object\n");
 		class_name = "";
 		class_name_len = 0;
 	};
@@ -1600,6 +1622,7 @@ inline void amf3_format_object(pTHX_ struct io_struct *io, HV * one){
 	}
 	else {
 		SV * class_name_sv;
+        int const sealed_count = 0;
 		trait = newAV();
 		av_extend(trait, 3);
 		class_name_sv = newSVpvn(class_name, class_name_len);
@@ -1608,7 +1631,8 @@ inline void amf3_format_object(pTHX_ struct io_struct *io, HV * one){
 		av_store(trait, 1, newSViv(io->rc_trait));
 		av_store(trait, 2, newSViv(0));
 		
-		amf3_write_integer(aTHX_  io, ( 0 << 4) | 0x0b );
+        // fprintf( stderr, "class store %s,%d\n", class_name, class_name_len);
+		amf3_write_integer(aTHX_  io, ( sealed_count << 4) | 0x0b );
 		amf3_write_string_pvn(aTHX_  io, class_name, class_name_len);
 		io->rc_trait++;
 
@@ -1666,7 +1690,7 @@ inline void amf3_format_one(pTHX_ struct io_struct *io, SV * one){
 			if (SvTYPE(rv) == SVt_PVAV) 
 				amf3_format_array(aTHX_  io, (AV*) rv);
 			else if (SvTYPE(rv) == SVt_PVHV) {
-				amf3_format_object(aTHX_  io, (HV*) rv);
+				amf3_format_object(aTHX_  io, one);
 			}
 			else {
 				io->message = "bad type of object in stream";
@@ -1878,22 +1902,30 @@ dclone(SV * data)
 		XPUSHs(retvalue);
 
 void
-thaw(data)
+thaw(data, ...)
 	SV * data
-	PROTOTYPE: $
+	PROTOTYPE: $;$
 	INIT:
 		SV* retvalue;
 		SV* io_self;
 		struct io_struct io_record;
 	PPCODE:
-		io_self = newRV_noinc((SV*)newAV());
-		io_in_init(aTHX_  &io_record, io_self, data, AMF0);
-		sv_2mortal(io_self);
+
         if (SvMAGICAL(data))
             mg_get(data);
+        // sting strict mode
+        if (items>1){
+            io_record.strict = 0;
+        }
+        else {
+            io_record.strict = GV_ADD;
+        };
 
 		if (SvPOKp(data)){
 			int error_code;
+            io_self = newRV_noinc((SV*)newAV());
+            io_in_init(aTHX_  &io_record, io_self, data, AMF0);
+            sv_2mortal(io_self);
 			if (error_code = setjmp(io_record.target_error)){
 				//croak("Failed parse string. unspected EOF");
 				//TODO: ERROR CODE HANDLE
@@ -1957,23 +1989,30 @@ MODULE = Storable::AMF0		PACKAGE = Storable::AMF3
 
 
 void
-thaw(data)
+thaw(data, ...)
 	SV * data
-	PROTOTYPE: $
+	PROTOTYPE: $;$
 	INIT:
 		SV* retvalue;
 		SV* io_self;
 		struct io_struct io_record;
 	PPCODE:
-		io_self = newRV_noinc((SV*)newAV());
-		io_in_init(aTHX_  &io_record, io_self, data, AMF3);
-		sv_2mortal(io_self);
 		
         if (SvMAGICAL(data))
             mg_get(data);
+        // Steting strict mode
+        if (items>1){
+            io_record.strict = 0;
+        }
+        else {
+            io_record.strict = GV_ADD;
+        };
 
 		if (SvPOKp(data)){
 			int error_code;
+            io_self = newRV_noinc((SV*)newAV());
+            io_in_init(aTHX_  &io_record, io_self, data, AMF3);
+            sv_2mortal(io_self);
 			if (error_code = setjmp(io_record.target_error)){
                 sv_setiv(ERRSV, error_code);
                 sv_setpvf(ERRSV, "AMF3 parse failed. (Code %d)", error_code);

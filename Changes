@@ -181,5 +181,16 @@ Revision history for Perl extension Storable::AMF.
 
 0.4600 ( 1049) 2009-01-28 12:29:00 +0300 
 	- back_port to 5.8.8
-	- Find bug AMF3 stupid add test 
+	- Find stupid bug AMF3 add test 
+
+0.4700 ( 1097) 2009-01-30 19:14:39 +0300 
+	- Added strict pragma. thaw bug fix
+
+0.4800 ( 1100) 2009-02-02 11:08:10 +0300 
+	- fix file_read_bug. (Win32 test bug)
+	- added test for thaw(undef)
+
+0.4900 ( 1103) 2009-02-02 13:18:42 +0300 
+	- fix objects bugs in AMF3
+	- fix objects bugs in AMF3
 

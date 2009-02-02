@@ -7,6 +7,7 @@ use File::Spec;
 use Scalar::Util qw(refaddr reftype);
 use List::Util qw(max); 
 use base 'Exporter';
+use warnings 'all';
 
 our (@EXPORT, @EXPORT_OK);
 @EXPORT_OK=qw(ref_mem_safe);
@@ -72,6 +73,7 @@ sub my_readfile{
     $file = File::Spec->catfile(@_, $file);
 	open my $filefh, "<", $file
 	or die "Can't open file '$file' for reading";
+    binmode($filefh);
 	flock $filefh, LOCK_SH;
 	read $filefh, $buf,  -s $filefh;
 	flock $filefh, LOCK_UN;
