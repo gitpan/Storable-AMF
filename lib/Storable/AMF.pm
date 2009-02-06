@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Fcntl qw(:flock);
 use Storable::AMF0;
-our $VERSION = '0.49';
+our $VERSION = '0.52';
 
 require Exporter;
 our @ISA = qw(Exporter);
@@ -21,14 +21,67 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
+our $OPTS;
+
 no strict 'refs';
 *{"Storable::AMF::$_"} = *{"Storable::AMF0::$_"} for @{$EXPORT_TAGS{'all'}};
+package Storable::AMF0::Var;
+use Carp qw(croak);
+our %OPTS =
+(   
+    STRICT => 0,
+    UTF8_ENCODE=>1,
+    UTF8_DECODE=>2,
+);
+our %OPT_DEFAULT = (
+    STRICT => 0,
+    UTF8_ENCODE=>0,
+    UTF8_DECODE=>0,
+);
+sub options{
+    return sprintf "( %s )", join ", ", keys %OPTS;
+}
+sub TIESCALAR{
+    my $class = shift;
+    my $name  = shift;
+    croak "Unknown option $name. Valid are ".options()  unless exists $OPTS{$name};
+    my $self  = bless \(my $s = $OPTS{$name}), $class;
+    $self->STORE($OPT_DEFAULT{$name});
+    return $self;
+        
+}
+sub STORE{
+    my $self  = shift;
+    my $value = shift;
+    my @var;
+    (@var) = (unpack "(C)*", ($Storable::AMF0::OPTS ||""));
+    $var[$$self] = $value ;
+    $Storable::AMF0::OPTS = pack "(C)*", (map { scalar $_ || 0 } @var);
+    $value;
+}
+sub FETCH{
+    my $self  = shift;
+    my @var = unpack "C*", $Storable::AMF0::OPTS||"";
+    $var[$$self] ;
+}
+package Storable::AMF0;
+sub ref_var{
+    my $name = shift;
+    my $s;
+    tie ${"Storable::AMF0::$name"}, "Storable::AMF0::Var", $name;
+}
+for my $pack ("Storable::AMF0"){
+    #*{$pack."::$_"} = ref_var($_) for keys %OPTS;
+    ref_var($_) for keys %OPTS;
+}
+use vars qw/$STRICT $UTF8_ENCODE $UTF8_DECODE/;
 
-# Preloaded methods go here.
-
+$STRICT = 0;
+$UTF8_ENCODE= 0;
+$UTF8_DECODE= 0;
+# print unpack "H*", $Storable::AMF0::OPTS;
 1;
 __END__
-# Below is stub documentation for your module. You'd better edit it!
 
 =head1 NAME
 

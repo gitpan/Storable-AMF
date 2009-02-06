@@ -1,17 +1,35 @@
 #use 5.008000;
 use ExtUtils::MakeMaker;
+
+my $a = 
+eval {
+    require Module::Build::Compat;
+    require ExtUtils::CBuilder; 
+    require ExtUtils::ParseXS;
+};
+if (not $@) {
+Module::Build::Compat->run_build_pl(args => \@ARGV);
+Module::Build::Compat->write_makefile();
+exit();
+}
+
+use File::Copy;
+use Cwd;
+copy('lib/Storable/AMF.xs', cwd());
+copy('lib/Storable/ppport.h', cwd());
+
+
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
-
 my $DEFINE = "-D${ENDIAN}_END";
 #my $DEFINE = "-D${ENDIAN}_END  -D_REENTRANT -D_GNU_SOURCE";
 if ($Config{osname} eq 'MSWin32'){
             $DEFINE.=" -DMSWin32";
-            system "perl", qw( -ibak -p -e), "s/^\s*inline\s*//", "AMF.xs";
+            system "perl", qw( -ibak -p -e), 's/^\s*inline\s*//', "AMF.xs";
 }
 our %REQUIRE = ( 
-	PREREQ_PM => {}, # e.g., Module::Name => 1.1
+	PREREQ_PM => {'Module::Build::Compat'=>0.02, 'Module::Build'=> 0.2}, # e.g., Module::Name => 1.1
 	MIN_PERL_VERSION => 5.008000,
 	);
 

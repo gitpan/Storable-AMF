@@ -26,6 +26,7 @@
 #define ERR_BAD_BYTEARRAY_REF 14
 #define ERR_EXTRA_BYTE 15
 #define ERR_INT_OVERFLOW 16
+#define ERR_RECURRENT_OBJECT 17
 //#define ERR_UNIMPLEMENTED 16
 
 #define AMF0 0
@@ -854,9 +855,11 @@ inline SV * parse_object(pTHX_ struct io_struct * io){
 	int len_next;
 	char * key;
 	SV * value;
+    int obj_pos;
 
 	obj =  newHV();
 	av_push(io->refs, newRV_noinc((SV *) obj));
+    obj_pos = av_len(io->refs);
 	while(1){
 		len_next = io_read_u16(io);
 		if (len_next == 0) {
@@ -864,7 +867,17 @@ inline SV * parse_object(pTHX_ struct io_struct * io){
 			object_end= io_read_marker(io);
 			if ((object_end == MARKER0_OBJECT_END))
 			{
-				return (SV*) newRV_inc((SV*)obj);
+                if (io->strict){
+                    SV* RETVALUE = *av_fetch(io->refs, obj_pos, 0);
+                    SvREFCNT_inc_simple_void_NN(RETVALUE);
+                    if (SvREFCNT(RETVALUE) > 2)
+                        io_register_error(io, ERR_RECURRENT_OBJECT);
+                        ;
+                    return RETVALUE;
+                }
+                else {
+				    return (SV*) newRV_inc((SV*)obj);
+                }
 			}
 			else {
 				io->pos--;
@@ -970,7 +983,7 @@ inline SV* parse_ecma_array(pTHX_ struct io_struct *io){
 	fprintf( stderr, "Start parse array %d\n", array_len);
     fprintf( stderr, "position %d\n", io_position(io));
     #endif
-	if (0 < array_len){
+	if (0 <= array_len){
         bool ok;
         UV index;
 		key_len = io_read_u16(io);
@@ -982,14 +995,18 @@ inline SV* parse_ecma_array(pTHX_ struct io_struct *io){
             av_store(this_array, index, parse_one(aTHX_  io));
         }
         else {
-            if (((key_len) == 6  || strnEQ(key_ptr, "length", 6)==1)){
+            if (((key_len) == 6  &&  strnEQ(key_ptr, "length", 6))){
                 ok = 1;
                 array_len++; // safe for flash v.9.0
                 sv_2mortal( parse_one(aTHX_  io));
             }
             else {
                 ok = 0;
-            }
+            };
+//             if (key_len>5){
+//                 int x = strnEQ(key_ptr,  "length", 6);
+//                 fprintf( stderr, "%d/%s = %d\n", key_len, key_ptr, !x);
+//             }
         }
         if (ok){ 
             for(i=1; i<array_len; ++i){
@@ -1036,7 +1053,13 @@ inline SV* parse_ecma_array(pTHX_ struct io_struct *io){
     fprintf( stderr, "position %d\n", io_position(io));
     #endif
 	if ((last_len == 0) && (last_marker == MARKER0_OBJECT_END)) {
-		RETVALUE = newRV_inc((SV*) this_array);
+        RETVALUE = *av_fetch(refs, av_refs_len + 1, 0);
+        SvREFCNT_inc_simple_void_NN(RETVALUE);
+		//RETVALUE = newRV_inc((SV*) this_array);
+        if (io->strict && (SvREFCNT(RETVALUE) > 2))
+            io_register_error(io, ERR_RECURRENT_OBJECT);
+        ;
+        // fprintf( stderr, "REFS = %d/%d\n", SvREFCNT(RETVALUE), SvREFCNT(SvRV(RETVALUE)));
 	}
 	else{
 		// Need rollback referenses 
@@ -1094,9 +1117,12 @@ inline SV* parse_typed_object(pTHX_ struct io_struct *io){
 	int len;
 
 	len = io_read_u16(io);
-	stash = gv_stashpvn(io->pos, len, GV_ADD & io->strict);
-
-
+    if (io->strict){
+    	stash = gv_stashpvn(io->pos, len, 0);
+    }
+    else {
+    	stash = gv_stashpvn(io->pos, len, GV_ADD );
+    }
 	io->pos+=len;
 	RETVALUE = parse_object(aTHX_  io);
     if (stash) 
@@ -1220,6 +1246,10 @@ inline void amf3_store_object(pTHX_ struct io_struct *io, SV * item){
 	//PerlIO_printf( PerlIO_stderr(), "store ref %p %d %p\n", io->arr_object, io->rc_object, item);
 	av_push(io->arr_object, newRV_noinc(item));
 }
+inline void amf3_store_object_rv(pTHX_ struct io_struct *io, SV * item){
+	//PerlIO_printf( PerlIO_stderr(), "store ref %p %d %p\n", io->arr_object, io->rc_object, item);
+	av_push(io->arr_object, item);
+}
 
 SV * amf3_parse_array(pTHX_ struct io_struct *io){
 	SV * RETVALUE;
@@ -1236,6 +1266,7 @@ SV * amf3_parse_array(pTHX_ struct io_struct *io){
 		int old_vlen;
         SV * item_value;
         UV item_index;
+        int obj_pos;
 
 
 		AV * array;
@@ -1249,7 +1280,10 @@ SV * amf3_parse_array(pTHX_ struct io_struct *io){
         //
 		array=newAV();
 		item = (SV *) array;
-		amf3_store_object(aTHX_  io, item);
+        RETVALUE = newRV_noinc(item);
+
+		amf3_store_object_rv(aTHX_  io, RETVALUE);
+        obj_pos = av_len(io->arr_object); 
 
 		
 		recover = FALSE;
@@ -1288,7 +1322,10 @@ SV * amf3_parse_array(pTHX_ struct io_struct *io){
             for(i=0; i< len; ++i){
                 av_store(array, i, amf3_parse_one(aTHX_  io));
 			};
-            RETVALUE = newRV_inc(item);
+
+        
+        //    RETVALUE = newRV_inc(item);
+        //    fprintf( stderr, "%d=%d\n", SvREFCNT(RETVALUE), SvREFCNT(item));
 		}
 		else {
             //востанавливаем как хэш
@@ -1303,7 +1340,8 @@ SV * amf3_parse_array(pTHX_ struct io_struct *io){
 			str_len = old_vlen;
             hv   = newHV();
 			item = (SV *) hv;
-			amf3_store_object(aTHX_  io, item);
+            RETVALUE = newRV_noinc(item);
+			amf3_store_object_rv(aTHX_  io, RETVALUE);
 			while(str_len != 1){
 				SV *one;
 				pstr = amf3_read_string(aTHX_  io, str_len, &plen);
@@ -1316,13 +1354,22 @@ SV * amf3_parse_array(pTHX_ struct io_struct *io){
 				(void) sprintf(buf, "%d", i);
 				(void) hv_store(hv, buf, strlen(buf), amf3_parse_one(aTHX_  io), 0);
 			}
-            RETVALUE = newRV_inc(item);
-		}
+//             *av_fetch(io->arr_object, obj_pos, 0);
+//             newRV_inc(item);
+		};
+        if (io->strict){
+        //    fprintf( stderr, "%d=%d\n", SvREFCNT(RETVALUE), SvREFCNT(item));
+            if (SvREFCNT(RETVALUE)>1){
+                io_register_error(io, ERR_RECURRENT_OBJECT);
+            }
+        }
+        SvREFCNT_inc_simple_void_NN(RETVALUE);
 	}
 	else {
 		SV ** value = av_fetch(io->arr_object, ref_len>>1, 0);	
 		if (value) {
-			RETVALUE = newRV(SvRV(*value));
+            SvREFCNT_inc_simple_void_NN(*value);
+			RETVALUE = *value;
 		}
 		else {
 			io_register_error(io, ERR_BAD_ARRAY_REF);
@@ -1439,7 +1486,12 @@ SV * amf3_parse_object(pTHX_ struct io_struct *io){
 		RETVALUE = newRV_inc((SV*) one);
   		if (SvCUR(class_name_sv)) {
             HV *stash;
-            stash = gv_stashsv(class_name_sv, GV_ADD & io->strict);
+            if (io->strict){
+                stash = gv_stashsv(class_name_sv, 0 );
+            }
+            else {
+                stash = gv_stashsv(class_name_sv, GV_ADD );
+            }
             if (stash) 
                 sv_bless(RETVALUE, stash);
   		}
@@ -1914,15 +1966,22 @@ thaw(data, ...)
         if (SvMAGICAL(data))
             mg_get(data);
         // sting strict mode
-        if (items>1){
+        if (1 == items ){
             io_record.strict = 0;
         }
         else {
             io_record.strict = GV_ADD;
         };
+        // fprintf(stderr, "=%d=%d\n", io_record.strict, items);
 
 		if (SvPOKp(data)){
 			int error_code;
+            if (SvUTF8(data)) {
+                //fprintf(stderr, "is UTF8\n");
+                croak("Storable::AMF0::thaw(data, ...): data is in utf8. Can't process utf8");
+            }else {
+                //fprintf(stderr, "is not UTF8\n");
+            };
             io_self = newRV_noinc((SV*)newAV());
             io_in_init(aTHX_  &io_record, io_self, data, AMF0);
             sv_2mortal(io_self);
@@ -2001,7 +2060,7 @@ thaw(data, ...)
         if (SvMAGICAL(data))
             mg_get(data);
         // Steting strict mode
-        if (items>1){
+        if (1 == items){
             io_record.strict = 0;
         }
         else {
@@ -2010,6 +2069,9 @@ thaw(data, ...)
 
 		if (SvPOKp(data)){
 			int error_code;
+            if (SvUTF8(data)) {
+                croak("Storable::AMF0::thaw(data, ...): data is in utf8. Can't process utf8");
+            }
             io_self = newRV_noinc((SV*)newAV());
             io_in_init(aTHX_  &io_record, io_self, data, AMF3);
             sv_2mortal(io_self);

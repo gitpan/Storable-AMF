@@ -1,14 +1,15 @@
 Changes
+Build.PL
 Makefile.PL
 MANIFEST
-ppport.h
 TODO
 README
-AMF.xs
 t/GrianUtils.pm
 lib/Storable/AMF.pm
+lib/Storable/ppport.h
 lib/Storable/AMF0.pm
 lib/Storable/AMF3.pm
+lib/Storable/AMF.xs
 t/00-compile.t
 t/01-parse_amf0.t
 t/02-parse_amf3.t
@@ -48,6 +49,8 @@ t/49-mem-safe-neg-AMF3.t
 t/50-AMF90-exception.t
 t/51-strict-pragma.t
 t/52-special-case.t
+t/53-strict-pragma-amf0.t
+t/54-strict-pragma-amf3.t
 t/AMF0/01-array-0-foo-bar-baz.pack
 t/AMF0/01-array-foo-bar-x2.pack
 t/AMF0/01-boolean-false.pack
@@ -129,4 +132,4 @@ t/AMF0/utf8-00.pack
 t/AMF0/utf8-01.pack
 t/AMF0/utf8-02.pack
 t/AMF0/zero.pack
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml

@@ -192,5 +192,14 @@ Revision history for Perl extension Storable::AMF.
 
 0.4900 ( 1103) 2009-02-02 13:18:42 +0300 
 	- fix objects bugs in AMF3
-	- fix objects bugs in AMF3
+
+0.5000 ( 1134) 2009-02-04 16:54:15 +0300 
+	- new tests for flash 9.0 bug. and fixes
+
+0.5100 ( 1138) 2009-02-04 18:24:16 +0300 
+	- add feature strict to amf3
+
+0.5200 ( 1159) 2009-02-06 12:21:15 +0300 
+	- croaking on thaw(bytearray_array) then  bytearray is UTF8_on string 
+	- added Build.PL
 

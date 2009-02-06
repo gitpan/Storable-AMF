@@ -3,7 +3,7 @@
     - Add experimental store of REF, SCALAR
     - Add descriptive error messages.
     - more documentation on thaw ARRAY, XML
-    - Impove testleak for strings
-    - rewrite store, nstore , locknstore, lockstore for ref
-    - add strict pragma
+    - Improve testleak for strings
     - add limit memory behavior (Error message when no mem)
+    - add feature enabled
+    - TODO make BUILD.PL script

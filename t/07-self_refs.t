@@ -41,8 +41,8 @@ my @objects = (
 		$a
 	},
 );
-ok(freeze $_) foreach @objects;
-ok( thaw freeze $_) foreach @objects;
+ok( freeze($_) ) foreach @objects;
+ok( thaw( freeze $_)) foreach @objects;
 
 is_deeply(thaw(freeze $_), $_) foreach @objects;
 
