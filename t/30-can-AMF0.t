@@ -27,7 +27,7 @@ is(refaddr $m->can($_), refaddr $n->can($_), "identity for $_ in AMF0") for @met
 
 ($m, $n) = qw(Storable::AMF Storable::AMF3);
 
-is(refaddr $m->can($_), refaddr $n->can($_), "identity for $_ in AMF3") for qw(dclone ref_lost_memory ref_destroy);
+is(refaddr $m->can($_), refaddr $n->can($_), "identity for $_ in AMF3") for qw(dclone ref_lost_memory ref-clear);
 eval{
     Storable::AMF0::dclone([]);
     Storable::AMF0::ref_lost_memory([]);

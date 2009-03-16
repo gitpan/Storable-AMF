@@ -8,14 +8,17 @@
 use strict;
 use warnings;
 
-# Make sure we're using My_Build from our distribution:
 use FindBin;
 #$use lib "$FindBin::Bin/tools";
 
 use Module::Build;          # Our customized version of Module::Build
+if ($] < 5.008){
+    warn "perl version $] not supported";
+    exit(0);
+}
 
-my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
-my $DEFINE = "-D${ENDIAN}_END";
+#~ my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
+#~ my $DEFINE = "-D${ENDIAN}_END";
 
 
 my $builder = Module::Build->new(
@@ -28,7 +31,7 @@ my $builder = Module::Build->new(
     perl                 => '5.8.0',
     XSLoader             => 0,
   },
-  extra_compiler_flags   => [ $DEFINE ],
+#  extra_compiler_flags   => [ $DEFINE ],
   build_requires => {
     'File::Spec'         => 0,
     'FindBin'            => 0,
@@ -39,10 +42,10 @@ my $builder = Module::Build->new(
   },
   # create_makefile_pl => 'passthrough',
   dynamic_config     => 0,
-#~   meta_merge         => {
-#~     no_index  => { directory => [ 'tools' ] },
-#~     resources => { homepage => 'http://code.google.com/p/libwin32/' },
-#~   },
+   meta_merge         => {
+#~      no_index  => { directory => [ 'tools' ] },
+#~      resources => { homepage => 'http://code.google.com/p/libwin32/' },
+   },
 );
 
 $builder->create_build_script();

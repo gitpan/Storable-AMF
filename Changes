@@ -203,3 +203,17 @@ Revision history for Perl extension Storable::AMF.
 	- croaking on thaw(bytearray_array) then  bytearray is UTF8_on string 
 	- added Build.PL
 
+0.5300 ( 1243) 2009-02-15 13:41:29 +0300 
+	- fixed build reqs for Build.PL
+	- fix some tests
+	- Fixed some memleak for strict mode. added test
+	- rename ref_destroy to ref_clean
+	- some fixes for opts
+
+0.5400 ( 1306) 2009-02-25 18:57:17 +0300 
+	- added UTF8_DECODE, UTF8_ENCODE, STRICT, ERROR_RAISE 
+	- added test pod
+
+0.5500 ( 1354) 2009-03-12 15:59:44 +0300 
+	- Port to Straberry perl 5.10
+

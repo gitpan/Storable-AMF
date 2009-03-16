@@ -3,7 +3,7 @@ package Storable::AMF3;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.52';
+our $VERSION = '0.55';
 use subs qw(freeze thaw);
 
 require Exporter;
@@ -16,7 +16,7 @@ our @ISA = qw(Exporter);
 
 our %EXPORT_TAGS = ( 'all' => [ qw(
 	freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store 
-    ref_destroy ref_lost_memory
+    ref_clear ref_lost_memory
 ) ] );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
@@ -107,7 +107,7 @@ no strict 'refs';
 use Storable::AMF0;
 #*Storable::AMF3::dclone = *Storable::AMF0::dclone;
 BEGIN{
-*{"Storable::AMF3::$_"} = *{"Storable::AMF0::$_"} for qw(dclone ref_lost_memory ref_destroy);
+*{"Storable::AMF3::$_"} = *{"Storable::AMF0::$_"} for qw(dclone ref_lost_memory ref_clear);
 #~ print "OK" if __PACKAGE__->can('ref_lost_memory');
 #~ ref_lost_memory([]);
 }
@@ -193,9 +193,8 @@ And some cases faster then Storable( for me always)
 =item dclone $file
   --- Deep cloning data structure
 
-=item ref_destroy $obj
-  --- Deep decloning data structure
-  --- safely destroy cloned object or any object 
+=item ref_clear $obj
+  --- cleaning  arrayref and hashref. (Usefull for destroing complex objects)
 
 =item ref_lost_memory $obj
   --- test if object contain lost memory fragments inside.

@@ -6,4 +6,5 @@
     - Improve testleak for strings
     - add limit memory behavior (Error message when no mem)
     - add feature enabled
-    - TODO make BUILD.PL script
+    - max array opt
+    - Add remove eof checks for some options

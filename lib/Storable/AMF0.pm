@@ -3,7 +3,7 @@ package Storable::AMF0;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.52';
+our $VERSION = '0.55';
 use subs qw(freeze thaw);
 use Scalar::Util qw(refaddr reftype); # for ref_circled
 
@@ -18,7 +18,7 @@ our @ISA = qw(Exporter);
 our %EXPORT_TAGS = ( 'all' => [ qw(
 	freeze thaw	dclone 
     retrieve lock_retrieve lock_store lock_nstore store
-    ref_lost_memory ref_destroy
+    ref_lost_memory ref_clear
 ) ] );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
@@ -127,7 +127,7 @@ sub _ref_selfref{
 }
 
 
-sub ref_destroy{
+sub ref_clear{
     my $ref = shift;
     my %addr;
     return unless (refaddr $ref);
@@ -135,12 +135,12 @@ sub ref_destroy{
     if (reftype $ref eq 'ARRAY'){
         @r = @$ref;
         @$ref =();
-        ref_destroy($_) for @r;
+    ref_clear($_) for @r;
     }
     elsif (reftype  $ref eq 'HASH'){
         @r = values %$ref;
         %$ref =();
-        ref_destroy($_) for @r;
+        ref_clear($_) for @r;
     }
 }
 
@@ -246,9 +246,8 @@ And some cases faster then Storable( for me always)
 =item dclone $file
   --- Deep cloning data structure
 
-=item ref_destroy $obj
-  --- Deep decloning data structure
-  --- safely destroy cloned object or any object 
+=item ref_clear $obj
+  --- recurrent refs clearing . (Succefully destroy recurent objects with circular liks too)
 
 =item ref_lost_memory $obj
   --- test if object contain lost memory fragments inside.

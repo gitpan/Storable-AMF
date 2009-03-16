@@ -7,6 +7,7 @@ use File::Spec;
 use Scalar::Util qw(refaddr reftype);
 use List::Util qw(max); 
 use base 'Exporter';
+use Data::Dumper;
 use warnings 'all';
 
 our (@EXPORT, @EXPORT_OK);
@@ -81,21 +82,13 @@ sub my_readfile{
 	return $buf;
 }
 
-sub create_pack{
-    my $class = shift;
-    my $name  = shift;
-    my $dir   = shift;
-
-
-
-}
 sub list_content{
     my $class = shift;
     my $dir   = shift;
     my $regex = shift || qr/.*?/;
     my $folder = $class->content($dir);
     return () unless $folder;
-    return grep { $_=~ $regex } keys %$folder;
+    return sort grep { $_=~ $regex } keys %$folder;
 };
 
 our $pack = "(w/a)*";
@@ -108,7 +101,6 @@ sub _pack{
     @$hash{@fixed_names} = (@fixed);
     return $$s;
 }
-use Data::Dumper;
 sub _unpack{
     my (@fixed, %rest);
     (@fixed[0..$#fixed_names], %rest) = unpack $pack, $_[0];
@@ -125,15 +117,35 @@ sub read_pack{
     print Dumper($$folder{$name}, _unpack(_pack($$folder{$name})));
 
 }
+sub create_pack{
+    my $class = shift;
+    my $dir   = shift;
+    my $name  = shift;
+    my $value = shift;
+
+    $dir=~s/[\/\\]$//;
+    my $pack_name = File::Spec->catfile($dir, "$name.pack");
+    my $sname = $pack_name;
+    $sname =~ s/\.pack$//;
+    our %folder;
+
+    $folder{$sname} = $value;
+    delete $folder{$sname}{'pack'};
+    open my $fh, ">", $pack_name or die "can't create $pack_name";
+    binmode($fh);
+    print $fh _pack($folder{$sname});
+    close($fh);            
+
+}
 
 sub content{
     my $class = shift;
     my $dir   = shift;
+    $dir=~s/[\/\\]$//;
     our %dir;
-
     return $dir{$dir} if $dir{$dir};
     my @content = grep {-f $_ and -r $_ } grep { $_!~m/(?:^|(?:[\\\/]))\.{1,2}/ } $class->my_readdir($dir);
-    my %folder;
+    our %folder;
    
     my @name = grep { m/(?:amf0|pack)$/ } @content;
     
@@ -156,7 +168,7 @@ sub content{
             my $pack_name = $_.".pack";
             delete $folder{$sname}{'pack'};
 
-            open my $fh, ">", $pack_name or die "can't open $pack_name";
+            open my $fh, ">", $pack_name or die "can't create $pack_name";
             binmode($fh);
             print $fh _pack($folder{$sname});
             close($fh);            

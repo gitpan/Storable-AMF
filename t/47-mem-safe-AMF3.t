@@ -1,7 +1,6 @@
 use lib 't';
 use ExtUtils::testlib;
-use Storable::AMF3 qw(freeze thaw ref_lost_memory ref_destroy);
-#use Storable::AMF0 qw(ref_lost_memory ref_destroy);
+use Storable::AMF3 qw(freeze thaw ref_lost_memory ref_clear);
 use Scalar::Util qw(refaddr);
 use GrianUtils qw(ref_mem_safe);
 use strict;
@@ -21,9 +20,12 @@ sub tt(&){
 my $directory = qw(t/AMF0);
 my @item ;
 @item = GrianUtils->list_content($directory);
+#print Dumper(thaw freeze({}), 1 );
+#exit(0);
 
 
 my @objs;
+my @recurrent;
 for my $item (@item){
 	my $packet  = GrianUtils->read_pack($directory, $item);
     my $eval = $packet->{eval};
@@ -31,34 +33,36 @@ for my $item (@item){
 	no strict;
 	$obj = eval $eval;
 	die $@ if $@;
+    next if $eval=~m/use\s+utf8/;
+    push @recurrent, $item if ref_lost_memory($obj);
     push @objs, $item, next if !ref_lost_memory($obj);
     print Dumper($item, $obj);
 }
-my $total = @item + @objs*4;
+my $total = @item + @objs*4+ @recurrent;
 eval "use Test::More tests=>$total;";
 warn $@ if $@;
 
 
 
+TEST_LOOP: for my $item (@recurrent){
+    my $packet = GrianUtils->read_pack($directory, $item);
+    my ($image_amf3, $image_amf0, $eval) = @$packet{qw(amf3 amf0 eval)};
+		no strict;
+		my $obj = eval $eval;
+        use strict;
+        my $freeze = freeze $obj;        
+
+       # ok( ! thaw($image_amf3, 1), "thaw recurrent $item - $msg");
+        ok(tt { my $a = thaw($image_amf3, 1); 1}, "thaw recurrent $item - $msg");
+}
 TEST_LOOP: for my $item (@item){
     my $packet = GrianUtils->read_pack($directory, $item);
     my ($image_amf3, $image_amf0, $eval) = @$packet{qw(amf3 amf0 eval)};
-	if ($eval =~m/use\s+utf8/) {
-		SKIP: {
-			no strict;
-			skip("utf8 convert is not supported mode", 1);
-		}
-	}
-	else {
 		no strict;
-		
 		my $obj = eval $eval;
         use strict;
-
         my $freeze = freeze $obj;        
-        
-        ok(tt { my $a = thaw $image_amf0;ref_destroy($a); 1}, "thaw destroy $item - $msg");
-	}
+        ok(tt { my $a = thaw $image_amf0;ref_clear($a); 1}, "thaw destroy $item - $msg");
 }
 
 TEST_LOOP: for my $item (@objs){

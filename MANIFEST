@@ -17,7 +17,6 @@ t/03-format.t
 t/04-blessed.t
 t/05-dclone.t
 t/06-last-undef.t
-t/07-self_refs.t
 t/09-aux-utility.t
 t/10-dual-var.t
 t/22-one.t
@@ -115,6 +114,13 @@ t/AMF0/03-object_1_1.pack
 t/AMF0/03-tobject_2_0.pack
 t/AMF0/03-tobject_3_0.pack
 t/AMF0/05-complex_zapp.pack
+t/AMF0/07-refs-x1.pack
+t/AMF0/07-refs-x2.pack
+t/AMF0/07-refs-x3.pack
+t/AMF0/07-refs-x4.pack
+t/AMF0/07-refs-x5.pack
+t/AMF0/07-refs-x6.pack
+t/AMF0/07-refs-x7.pack
 t/AMF0/25-array_1_1.pack
 t/AMF0/25-array_2_1.pack
 t/AMF0/25-array_2_2.pack
@@ -132,4 +138,4 @@ t/AMF0/utf8-00.pack
 t/AMF0/utf8-01.pack
 t/AMF0/utf8-02.pack
 t/AMF0/zero.pack
-META.yml
+META.yml                                 Module meta-data (added by MakeMaker)

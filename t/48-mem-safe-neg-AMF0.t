@@ -1,6 +1,6 @@
 use lib 't';
 use ExtUtils::testlib;
-use Storable::AMF0 qw(freeze thaw ref_lost_memory ref_destroy);
+use Storable::AMF0 qw(freeze thaw ref_lost_memory ref_clear);
 use Scalar::Util qw(refaddr);
 use GrianUtils qw(ref_mem_safe);
 use strict;

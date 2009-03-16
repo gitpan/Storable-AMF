@@ -28,6 +28,10 @@
 #define ERR_INT_OVERFLOW 16
 #define ERR_RECURRENT_OBJECT 17
 //#define ERR_UNIMPLEMENTED 16
+#define OPT_STRICT  1
+#define OPT_DECODE_UTF8  2
+#define OPT_ENCODE_UTF8  4
+#define OPT_ERROR_RAISE  8
 
 #define AMF0 0
 #define AMF3 3
@@ -67,20 +71,24 @@
 #undef TRACE
 #define TRACE(ELEM) ;
 
-#ifdef LITTLE_END 
+#ifdef LITTLE_ENDIAN 
 #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
 #else 
-#ifdef BIG_END
 #define GET_NBYTE(ALL, IPOS, TYPE) (sizeof(TYPE) -ALL + IPOS)
 #endif
-#endif
 
-//Fucking perl porters 
+// Blin: perl porters -WTF
 #ifdef MSWin32
 #undef setjmp
 #undef longjmp
 #define setjmp _setjmp
 #define inline
+#endif
+// Blin Strawberry perl for Win32
+#ifdef WIN32
+#undef setjmp
+#undef longjmp
+#define setjmp _setjmp
 #endif
 
 //#define TRACE0
@@ -116,7 +124,7 @@ struct io_struct{
 	int rc_object;
 	int rc_trait;
 	int version;
-    int strict;
+    int options;
 };
 
 inline void io_register_error(struct io_struct *io, int );
@@ -844,7 +852,8 @@ inline SV * parse_utf8(pTHX_ struct io_struct * io){
 	int string_len = io_read_u16(io);
 	SV * RETVALUE;
 	RETVALUE = newSVpv(io_read_chars(io, string_len), string_len);
-	//SvUTF8_on(RETVALUE);
+    if (io->options & OPT_DECODE_UTF8)
+        SvUTF8_on(RETVALUE);
 
 	return RETVALUE;
 //	return io_read_PV(io, string_len);
@@ -867,12 +876,12 @@ inline SV * parse_object(pTHX_ struct io_struct * io){
 			object_end= io_read_marker(io);
 			if ((object_end == MARKER0_OBJECT_END))
 			{
-                if (io->strict){
+                if (io->options & OPT_STRICT){
                     SV* RETVALUE = *av_fetch(io->refs, obj_pos, 0);
-                    SvREFCNT_inc_simple_void_NN(RETVALUE);
-                    if (SvREFCNT(RETVALUE) > 2)
+                    if (SvREFCNT(RETVALUE) > 1)
                         io_register_error(io, ERR_RECURRENT_OBJECT);
                         ;
+                    SvREFCNT_inc_simple_void_NN(RETVALUE);
                     return RETVALUE;
                 }
                 else {
@@ -947,12 +956,15 @@ inline SV* parse_strict_array(pTHX_ struct io_struct *io){
 	array_len = io_read_u32(io);
 	this_array = newAV();
 	av_extend(this_array, array_len);
-	av_push(refs, newRV_noinc((SV*) this_array));
+	av_push(refs, RETVALUE = newRV_noinc((SV*) this_array));
 			
 	for(i=0; i<array_len; ++i){
 		av_push(this_array, parse_one(aTHX_  io));
 	}
-	RETVALUE = newRV_inc((SV*) this_array);
+     // sv_dump(RETVALUE);
+    if (SvREFCNT(RETVALUE) > 1 && io->options & OPT_STRICT)
+         io_register_error(io, ERR_RECURRENT_OBJECT);
+    SvREFCNT_inc_simple_void_NN(RETVALUE);
 	
 	return RETVALUE;
 }
@@ -1054,11 +1066,11 @@ inline SV* parse_ecma_array(pTHX_ struct io_struct *io){
     #endif
 	if ((last_len == 0) && (last_marker == MARKER0_OBJECT_END)) {
         RETVALUE = *av_fetch(refs, av_refs_len + 1, 0);
-        SvREFCNT_inc_simple_void_NN(RETVALUE);
 		//RETVALUE = newRV_inc((SV*) this_array);
-        if (io->strict && (SvREFCNT(RETVALUE) > 2))
+        if (io->options & OPT_STRICT && (SvREFCNT(RETVALUE) > 1))
             io_register_error(io, ERR_RECURRENT_OBJECT);
         ;
+        SvREFCNT_inc_simple_void_NN(RETVALUE);
         // fprintf( stderr, "REFS = %d/%d\n", SvREFCNT(RETVALUE), SvREFCNT(SvRV(RETVALUE)));
 	}
 	else{
@@ -1083,7 +1095,6 @@ inline SV* parse_date(pTHX_ struct io_struct *io){
 	RETVALUE = newSVnv(time);
 	//PerlIO_printf( PerlIO_stderr() , "date %g\n", time);
 	av_push(io->refs, RETVALUE);
-	//SvREFCNT_inc_simple_void_NN(RETVALUE);
 	SvREFCNT_inc_simple_void_NN(RETVALUE);
 	return RETVALUE;
 }
@@ -1094,7 +1105,8 @@ inline SV* parse_long_string(pTHX_ struct io_struct *io){
 	len = io_read_u32(io);
 		
 	RETVALUE = newSVpvn(io_read_chars(io, len), len);
-	//SvUTF8_on(RETVALUE);
+    if (io->options & OPT_DECODE_UTF8)
+        SvUTF8_on(RETVALUE);
 	return RETVALUE;
 }
 
@@ -1117,7 +1129,7 @@ inline SV* parse_typed_object(pTHX_ struct io_struct *io){
 	int len;
 
 	len = io_read_u16(io);
-    if (io->strict){
+    if (io->options & OPT_STRICT){
     	stash = gv_stashpvn(io->pos, len, 0);
     }
     else {
@@ -1209,7 +1221,8 @@ SV * amf3_parse_string(pTHX_ struct io_struct *io){
 	pstr = amf3_read_string(aTHX_  io, ref_len, &plen);
 //	PerlIO_printf( PerlIO_stderr(), "A(%s, %d, %d)\n", pstr, plen, ref_len);
 	RETVALUE = newSVpvn(pstr, plen);
-	//SvUTF8_on(RETVALUE);
+	if (io->options & OPT_DECODE_UTF8) 
+        SvUTF8_on(RETVALUE);
 	return RETVALUE;
 }
 SV * amf3_parse_xml(pTHX_ struct io_struct *io);
@@ -1357,7 +1370,7 @@ SV * amf3_parse_array(pTHX_ struct io_struct *io){
 //             *av_fetch(io->arr_object, obj_pos, 0);
 //             newRV_inc(item);
 		};
-        if (io->strict){
+        if (io->options & OPT_STRICT){
         //    fprintf( stderr, "%d=%d\n", SvREFCNT(RETVALUE), SvREFCNT(item));
             if (SvREFCNT(RETVALUE)>1){
                 io_register_error(io, ERR_RECURRENT_OBJECT);
@@ -1454,8 +1467,9 @@ SV * amf3_parse_object(pTHX_ struct io_struct *io){
             io_register_error(io, ERR_UNIMPLEMENTED);
         }
 		one = newHV();
+		RETVALUE = newRV_noinc((SV*) one);
 		//av_push(io->arr_object, newRV_noinc((SV*)one));
-		amf3_store_object(aTHX_  io, (SV*)one);
+		amf3_store_object_rv(aTHX_  io, RETVALUE);
 
 		for(i=0; i<sealed; ++i){
 			(void) hv_store_ent( one, *av_fetch(trait, 4+i, 0), amf3_parse_one(aTHX_  io), 0);	
@@ -1482,11 +1496,14 @@ SV * amf3_parse_object(pTHX_ struct io_struct *io){
                 // fprintf( stderr, "after str\n");
                 }
         }
-        // fprintf( stderr, "Undo 4 %d\n", 7&obj_ref);
-		RETVALUE = newRV_inc((SV*) one);
+        // fprintf( stderr, "Undo 4 %d\n", 7&objo_ref);
+        if (SvREFCNT(RETVALUE) > 1 && io->options & OPT_STRICT){
+            io_register_error(io, ERR_RECURRENT_OBJECT);
+        };
+        SvREFCNT_inc_simple_void_NN(RETVALUE);
   		if (SvCUR(class_name_sv)) {
             HV *stash;
-            if (io->strict){
+            if (io->options & OPT_STRICT){
                 stash = gv_stashsv(class_name_sv, 0 );
             }
             else {
@@ -1502,7 +1519,8 @@ SV * amf3_parse_object(pTHX_ struct io_struct *io){
 	else {
 		SV ** ref = av_fetch(io->arr_object, obj_ref>>1, 0);
 		if (ref) {
-			RETVALUE = newRV(SvRV(*ref));
+			RETVALUE = *ref;
+            SvREFCNT_inc_simple_void_NN(RETVALUE);
 		}
 		else {
 			io_register_error(io, ERR_BAD_TRAIT_REF);
@@ -1518,6 +1536,8 @@ SV * amf3_parse_xml(pTHX_ struct io_struct *io){
 		int len = Bi>>1;
 		char *b = io_read_bytes(io, len);
 		RETVALUE = newSVpvn(b, len);
+        if (io->options & OPT_DECODE_UTF8)
+            SvUTF8_on(RETVALUE);
 		SvREFCNT_inc_simple_void_NN(RETVALUE);
 		av_push(io->arr_object, RETVALUE);
 	}
@@ -1965,14 +1985,18 @@ thaw(data, ...)
 
         if (SvMAGICAL(data))
             mg_get(data);
-        // sting strict mode
+        // sting options mode
         if (1 == items ){
-            io_record.strict = 0;
+            io_record.options = 0;
         }
         else {
-            io_record.strict = GV_ADD;
+            SV * opt = ST(1);
+            if (! SvIOK(opt)){
+                warn( "options are not integer" );
+                return ;
+            };
+            io_record.options = SvIV(opt);
         };
-        // fprintf(stderr, "=%d=%d\n", io_record.strict, items);
 
 		if (SvPOKp(data)){
 			int error_code;
@@ -1988,22 +2012,29 @@ thaw(data, ...)
 			if (error_code = setjmp(io_record.target_error)){
 				//croak("Failed parse string. unspected EOF");
 				//TODO: ERROR CODE HANDLE
-                sv_setiv(ERRSV, error_code);
-                sv_setpvf(ERRSV, "Error(code %d) at parse AMF0", error_code);
-                SvIOK_on(ERRSV);
+				if (io_record.options & OPT_ERROR_RAISE){
+					croak("Error at parse AMF0 (%d)", error_code);
+				}
+				else {
+					sv_setiv(ERRSV, error_code);
+					sv_setpvf(ERRSV, "Error at parse AMF0 (%d)", error_code);
+					SvIOK_on(ERRSV);
+				}
                 io_in_destroy(aTHX_  &io_record, 0); // all obects
-
 			}
 			else {
 				retvalue = (SV*) (parse_one(aTHX_  &io_record));
 				retvalue = sv_2mortal(retvalue);
 				if (io_record.pos!=io_record.end){
-                    sv_setiv(ERRSV, ERR_EOF);
-                    sv_setpvf(ERRSV, "EOF at parse AMF0", ERR_EXTRA_BYTE);
-                    SvIOK_on(ERRSV);
-                    #sv_dump(io_self);
-                    io_in_destroy(aTHX_  &io_record, 0); // all obects
-                    #sv_dump(io_self);
+					if (io_record.options & OPT_ERROR_RAISE){
+						croak("EOF at parse AMF0 (%d)", ERR_EXTRA_BYTE);
+					}
+					else {
+						sv_setiv(ERRSV, ERR_EOF);
+						sv_setpvf(ERRSV, "EOF at parse AMF0 (%d)", ERR_EXTRA_BYTE);
+						SvIOK_on(ERRSV);
+					}                    
+                    io_in_destroy(aTHX_  &io_record, 0); // all objects                    
 
 				}
                 else {
@@ -2059,12 +2090,18 @@ thaw(data, ...)
 		
         if (SvMAGICAL(data))
             mg_get(data);
-        // Steting strict mode
+        // Steting options mode
         if (1 == items){
-            io_record.strict = 0;
+            io_record.options = 0;
         }
         else {
-            io_record.strict = GV_ADD;
+            SV * opt = ST(1);
+            if (! SvIOK(opt)){
+                sv_dump(opt);
+                warn( "options are not integer" );
+                return ;
+            };
+            io_record.options = SvIV(opt);
         };
 
 		if (SvPOKp(data)){
@@ -2076,9 +2113,15 @@ thaw(data, ...)
             io_in_init(aTHX_  &io_record, io_self, data, AMF3);
             sv_2mortal(io_self);
 			if (error_code = setjmp(io_record.target_error)){
-                sv_setiv(ERRSV, error_code);
-                sv_setpvf(ERRSV, "AMF3 parse failed. (Code %d)", error_code);
-                SvIOK_on(ERRSV);
+				if (io_record.options & OPT_ERROR_RAISE){
+					croak("Error at parse AMF0 (%d)", error_code);
+				}
+				else {
+					sv_setiv(ERRSV, error_code);
+					sv_setpvf(ERRSV, "AMF3 parse failed. (%d)", error_code);
+					SvIOK_on(ERRSV);
+				}
+                
                 io_in_destroy(aTHX_  &io_record, 0);
 
 			}
@@ -2086,11 +2129,15 @@ thaw(data, ...)
 				retvalue = (SV*) (amf3_parse_one(aTHX_  &io_record));
                 sv_2mortal(retvalue);
 				if (io_record.pos!=io_record.end){
-                    sv_setiv(ERRSV, ERR_EOF);
-                    sv_setpvf(ERRSV, "AMF3 thaw  failed. EOF at parse (Code %d)", ERR_EOF);
-                    SvIOK_on(ERRSV);
-                    io_in_destroy(aTHX_  &io_record, 0);
-                    
+					if (io_record.options & OPT_ERROR_RAISE){
+						croak("AMF3 thaw  failed. EOF at parse (%d)", ERR_EOF);
+					}
+					else {
+						sv_setiv(ERRSV, ERR_EOF);
+						sv_setpvf(ERRSV, "AMF3 thaw  failed. EOF at parse (%d)", ERR_EOF);
+						SvIOK_on(ERRSV);
+					}
+                    io_in_destroy(aTHX_  &io_record, 0);                    
 				}
                 else {
                     sv_setsv(ERRSV, &PL_sv_undef);
@@ -2121,7 +2168,7 @@ void freeze(data)
             sv_setsv(ERRSV, &PL_sv_undef);
 		}
 		else {
-			//croak("Failed parse string. unspected EOF");
+			
 			//TODO: ERROR CODE HANDLE
             sv_setiv(ERRSV, error_code);
             sv_setpvf(ERRSV, "AMF3 format  failed. (Code %d)", error_code);

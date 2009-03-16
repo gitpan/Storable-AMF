@@ -8,9 +8,9 @@ eval {
     require ExtUtils::ParseXS;
 };
 if (not $@) {
-Module::Build::Compat->run_build_pl(args => \@ARGV);
-Module::Build::Compat->write_makefile();
-exit();
+    Module::Build::Compat->run_build_pl(args => \@ARGV);
+    Module::Build::Compat->write_makefile();
+    exit();
 }
 
 use File::Copy;
@@ -21,8 +21,8 @@ copy('lib/Storable/ppport.h', cwd());
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
-my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
-my $DEFINE = "-D${ENDIAN}_END";
+#my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
+#my $DEFINE = "-D${ENDIAN}_END";
 #my $DEFINE = "-D${ENDIAN}_END  -D_REENTRANT -D_GNU_SOURCE";
 if ($Config{osname} eq 'MSWin32'){
             $DEFINE.=" -DMSWin32";

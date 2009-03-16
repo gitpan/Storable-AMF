@@ -4,8 +4,8 @@ use strict;
 use warnings;
 use Fcntl qw(:flock);
 use Storable::AMF0;
-our $VERSION = '0.52';
-
+our $VERSION = '0.55';
+use vars qw/$OPT/;
 require Exporter;
 our @ISA = qw(Exporter);
 
@@ -14,7 +14,7 @@ our @ISA = qw(Exporter);
 # Do not simply export all your public functions/methods/constants.
 
 our %EXPORT_TAGS = ( 'all' => [ qw(
-	freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store ref_lost_memory ref_destroy
+	freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store ref_lost_memory ref_clear
 ) ] );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
@@ -27,6 +27,7 @@ no strict 'refs';
 *{"Storable::AMF::$_"} = *{"Storable::AMF0::$_"} for @{$EXPORT_TAGS{'all'}};
 package Storable::AMF0::Var;
 use Carp qw(croak);
+use Scalar::Util qw(reftype);
 our %OPTS =
 (   
     STRICT => 0,
@@ -43,9 +44,11 @@ sub options{
 }
 sub TIESCALAR{
     my $class = shift;
+    my $scalar_ref = shift;
+    croak "First arg must be scalarref" unless reftype $scalar_ref eq 'SCALAR';
     my $name  = shift;
     croak "Unknown option $name. Valid are ".options()  unless exists $OPTS{$name};
-    my $self  = bless \(my $s = $OPTS{$name}), $class;
+    my $self  = bless [ $scalar_ref, $OPTS{$name} ], $class;
     $self->STORE($OPT_DEFAULT{$name});
     return $self;
         
@@ -54,21 +57,22 @@ sub STORE{
     my $self  = shift;
     my $value = shift;
     my @var;
-    (@var) = (unpack "(C)*", ($Storable::AMF0::OPTS ||""));
-    $var[$$self] = $value ;
-    $Storable::AMF0::OPTS = pack "(C)*", (map { scalar $_ || 0 } @var);
+    (@var) = (unpack "(C)*", (${$$self[0]} ||""));
+    $var[$$self[1]] = $value ;
+    ${$$self[0]} = pack "(C)*", (map { scalar $_ || 0 } @var);
     $value;
 }
 sub FETCH{
     my $self  = shift;
-    my @var = unpack "C*", $Storable::AMF0::OPTS||"";
-    $var[$$self] ;
+    my @var = unpack "C*", ${$$self[0]}||"";
+    $var[$$self[1]] ;
 }
 package Storable::AMF0;
+
 sub ref_var{
     my $name = shift;
     my $s;
-    tie ${"Storable::AMF0::$name"}, "Storable::AMF0::Var", $name;
+    tie ${"Storable::AMF0::$name"}, "Storable::AMF0::Var", \$Storable::AMF::OPT, $name;
 }
 for my $pack ("Storable::AMF0"){
     #*{$pack."::$_"} = ref_var($_) for keys %OPTS;
@@ -79,6 +83,7 @@ use vars qw/$STRICT $UTF8_ENCODE $UTF8_DECODE/;
 $STRICT = 0;
 $UTF8_ENCODE= 0;
 $UTF8_DECODE= 0;
+
 # print unpack "H*", $Storable::AMF0::OPTS;
 1;
 __END__
@@ -175,9 +180,8 @@ This module writen in C for speed. Also this package allow freeze and thaw AMF3 
 =item dclone $file
   --- Deep cloning data structure
 
-=item ref_destroy $obj
-  --- Deep decloning data structure
-  --- safely destroy cloned object or any object 
+=item ref_clear $obj
+  --- recurrent cleaning arrayrefs and hashrefs.
 
 =item ref_lost_memory $obj
   --- test if object contain lost memory fragments inside.
