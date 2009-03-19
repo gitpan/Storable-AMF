@@ -14,6 +14,8 @@ no warnings 'once';
 	use_ok('Storable::AMF');
 	use_ok('Storable::AMF0');
 	use_ok('Storable::AMF3');
+    print STDERR unpack( "H*", pack "d", 12345678), " ";
+    Storable::AMF3::endian();
 #	};
 #########################
 

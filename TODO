@@ -1,4 +1,4 @@
-	- realize readObject, CanRead, 
+    - realize readObject, CanRead, 
     - Add test for store function
     - Add experimental store of REF, SCALAR
     - Add descriptive error messages.
