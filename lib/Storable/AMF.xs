@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_DEPRECATE
 #define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
 #include "perl.h"
@@ -71,27 +72,34 @@
 #undef TRACE
 #define TRACE(ELEM) ;
 
-#if LITTLE_ENDIAN 
+// #if LITTLE_ENDIAN 
+// #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
+// #define GAX "LIT"
+// #else 
+// #define GET_NBYTE(ALL, IPOS, TYPE) (sizeof(TYPE) -ALL + IPOS)
+// #define GAX "BIG"
+// #endif
+#if BYTE_ORDER == LITTLE_ENDIAN
 #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
 #define GAX "LIT"
-#else 
+#elif BYTE_ORDER == BIG_ENDIAN
 #define GET_NBYTE(ALL, IPOS, TYPE) (sizeof(TYPE) -ALL + IPOS)
 #define GAX "BIG"
-#endif
+#elif WIN32
+    #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
+    #define GAX "LIT"
+#else 
+    #error Can't figure out byteorder 
+#endif 
 
-// Blin: perl porters -WTF
-#ifdef MSWin32
-#undef setjmp
-#undef longjmp
-#define setjmp _setjmp
-#define inline
-#endif
 // Blin Strawberry perl for Win32
 #ifdef WIN32
+#define inline _inline
 #undef setjmp
 #undef longjmp
 #define setjmp _setjmp
 #endif
+
 
 //#define TRACE0
 struct amf3_restore_point{
@@ -103,9 +111,9 @@ struct amf3_restore_point{
 
 
 struct io_struct{
-    char * ptr;
-    char * pos;
-    char * end;
+    unsigned char * ptr;
+    unsigned char * pos;
+    unsigned char * end;
     char *message;
     void * this_perl;
     SV * sv_buffer;
@@ -219,7 +227,7 @@ inline void io_in_init(pTHX_ struct io_struct * io, SV *io_self, SV* data, int a
         sv_2mortal((SV*) io->arr_object);
     }
 }
-void io_in_destroy(pTHX_ struct io_struct * io, AV *a){
+inline void io_in_destroy(pTHX_ struct io_struct * io, AV *a){
     int i;
     SV **ref_item;
     int alen;
@@ -341,7 +349,7 @@ inline SV * io_buffer(struct io_struct *io){
     // 	return type;
     // }
 inline double io_read_double(struct io_struct *io);
-char io_read_marker(struct io_struct * io);
+inline char io_read_marker(struct io_struct * io);
 inline int io_read_u8(struct io_struct * io);
 inline int io_read_u16(struct io_struct * io);
 inline int io_read_u32(struct io_struct * io);
@@ -642,13 +650,13 @@ inline SV* parse_recordset(pTHX_ struct io_struct *io);
 inline SV* parse_xml_document(pTHX_ struct io_struct *io);
 inline SV* parse_typed_object(pTHX_ struct io_struct *io);
 
-void io_write_double(pTHX_ struct io_struct *io, double value);
-void io_write_marker(pTHX_ struct io_struct * io, char value);
-void io_write_u8(pTHX_ struct io_struct * io, unsigned int value);
-void io_write_s16(pTHX_ struct io_struct * io, signed int value);
-void io_write_u16(pTHX_ struct io_struct * io, unsigned int value);
-void io_write_u32(pTHX_ struct io_struct * io, unsigned int value);
-void io_write_u24(pTHX_ struct io_struct * io, unsigned int value);
+inline void io_write_double(pTHX_ struct io_struct *io, double value);
+inline void io_write_marker(pTHX_ struct io_struct * io, char value);
+inline void io_write_u8(pTHX_ struct io_struct * io, unsigned int value);
+inline void io_write_s16(pTHX_ struct io_struct * io, signed int value);
+inline void io_write_u16(pTHX_ struct io_struct * io, unsigned int value);
+inline void io_write_u32(pTHX_ struct io_struct * io, unsigned int value);
+inline void io_write_u24(pTHX_ struct io_struct * io, unsigned int value);
 
 inline double io_read_double(struct io_struct *io){
     const int step = sizeof(double);
@@ -770,25 +778,25 @@ inline void amf3_write_integer(pTHX_ struct io_struct *io, IV ivalue){
     }
     else if (value<= 0x3fff ) {
         io_reserve(aTHX_  io, 2);
-        io->pos[0] = (value>>7) | 128;
-        io->pos[1] = (value & 0x7f);
+        io->pos[0] = (U8) (value>>7) | 128;
+        io->pos[1] = (U8) (value & 0x7f);
         io->pos+=2;
     }
     else if (value <= 0x1fffff) {
         io_reserve(aTHX_  io, 3);
 
-        io->pos[0] = (value>>14) | 128;
-        io->pos[1] = (value>>7 & 0x7f) |128;
-        io->pos[2] = (value & 0x7f);
+        io->pos[0] = (U8) (value>>14) | 128;
+        io->pos[1] = (U8) (value>>7 & 0x7f) |128;
+        io->pos[2] = (U8) (value & 0x7f);
         io->pos+=3;
     }
     else if ((value <= 0x3FFFFFFF)){
         io_reserve(aTHX_  io, 4);
 
-        io->pos[0] = (value>>22 & 0xff) |128;
-        io->pos[1] = (value>>15 & 0x7f) |128;
-        io->pos[2] = (value>>8  & 0x7f) |128;
-        io->pos[3] = (value     & 0xff);
+        io->pos[0] = (U8) (value>>22 & 0xff) |128;
+        io->pos[1] = (U8) (value>>15 & 0x7f) |128;
+        io->pos[2] = (U8) (value>>8  & 0x7f) |128;
+        io->pos[3] = (U8) (value     & 0xff);
         io->pos+=4;
     }
     else {
@@ -798,7 +806,7 @@ inline void amf3_write_integer(pTHX_ struct io_struct *io, IV ivalue){
     return;
 }
 
-int amf3_read_integer(struct io_struct *io){
+inline int amf3_read_integer(struct io_struct *io){
     I32 value;
     io_require(io, 1);
     if ((U8) io->pos[0] > 0x7f) {
@@ -953,10 +961,9 @@ inline SV* parse_strict_array(pTHX_ struct io_struct *io){
 inline SV* parse_ecma_array(pTHX_ struct io_struct *io){
     SV* RETVALUE;
 
-    int array_len;
+    U32 array_len;
     AV * this_array;
     AV * refs = io->refs;
-    int i;
     int  position; //remember offset for array convertion to hash
     int last_len;
     char last_marker;
@@ -998,6 +1005,7 @@ inline SV* parse_ecma_array(pTHX_ struct io_struct *io){
             };
         }
         if (ok){ 
+	    U32 i;
             for(i=1; i<array_len; ++i){
                 UV index;
                 int key_len= io_read_u16(io);
@@ -1126,33 +1134,33 @@ inline SV* parse_boolean(pTHX_ struct io_struct * io){
 }
 
 inline SV * amf3_parse_one(pTHX_ struct io_struct *io);
-SV * amf3_parse_undefined(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_undefined(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSV(0);
     return RETVALUE;
 }
-SV * amf3_parse_null(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_null(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSV(0);
     return RETVALUE;
 }
-SV * amf3_parse_false(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_false(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSViv(0);
     return RETVALUE;
 }
 
-SV * amf3_parse_true(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_true(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSViv(1);
     return RETVALUE;
 }
-SV * amf3_parse_integer(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_integer(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSViv(amf3_read_integer(io));
     return RETVALUE;
 }
-SV * amf3_parse_double(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_double(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSVnv(io_read_double(io));
     return RETVALUE;
@@ -1186,7 +1194,7 @@ inline char * amf3_read_string(pTHX_ struct io_struct *io, int ref_len, STRLEN *
         }
     }
 }
-SV * amf3_parse_string(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_string(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     int ref_len;
     STRLEN plen;
@@ -1198,13 +1206,13 @@ SV * amf3_parse_string(pTHX_ struct io_struct *io){
     SvUTF8_on(RETVALUE);
     return RETVALUE;
 }
-SV * amf3_parse_xml(pTHX_ struct io_struct *io);
-SV * amf3_parse_xml_doc(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_xml(pTHX_ struct io_struct *io);
+inline SV * amf3_parse_xml_doc(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = amf3_parse_xml(aTHX_  io);
     return RETVALUE;
 }
-SV * amf3_parse_date(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_date(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     int i = amf3_read_integer(io);
     if (i&1){
@@ -1234,7 +1242,7 @@ inline void amf3_store_object_rv(pTHX_ struct io_struct *io, SV * item){
     av_push(io->arr_object, item);
 }
 
-SV * amf3_parse_array(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_array(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     int ref_len = amf3_read_integer(io);
     if (ref_len & 1){
@@ -1330,7 +1338,7 @@ SV * amf3_parse_array(pTHX_ struct io_struct *io){
 
             };
             for(i=0; i<len;++i){
-                (void) sprintf(buf, "%d", i);
+                (void) snprintf(buf, sizeof(buf), "%d", i);
                 (void) hv_store(hv, buf, strlen(buf), amf3_parse_one(aTHX_  io), 0);
             }
         };
@@ -1359,7 +1367,7 @@ struct amf3_trait_struct{
     SV* class_name;
     HV* stash;
 };
-SV * amf3_parse_object(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_object(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     int obj_ref = amf3_read_integer(io);
     #ifdef TRACE0
@@ -1380,8 +1388,8 @@ SV * amf3_parse_object(pTHX_ struct io_struct *io){
             };
             trait = (AV *) SvRV(*trait_item);
 
-            sealed  = SvIV(*av_fetch(trait, 0, 0));
-            dynamic = SvIV(*av_fetch(trait, 1, 0));
+            sealed  = (int)  SvIV(*av_fetch(trait, 0, 0));
+            dynamic = (bool) SvIV(*av_fetch(trait, 1, 0));
             class_name_sv = *av_fetch(trait, 3, 0);
         }
         else if ( !(obj_ref & 4)) {	
@@ -1472,7 +1480,7 @@ SV * amf3_parse_object(pTHX_ struct io_struct *io){
     }
     return RETVALUE;
 }
-SV * amf3_parse_xml(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_xml(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     int Bi = amf3_read_integer(io);
     if (Bi & 1) { // value
@@ -1495,7 +1503,7 @@ SV * amf3_parse_xml(pTHX_ struct io_struct *io){
     }
     return RETVALUE;
 }
-SV * amf3_parse_bytearray(pTHX_ struct io_struct *io){
+inline SV * amf3_parse_bytearray(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     int Bi = amf3_read_integer(io);
     if (Bi & 1) { // value
@@ -1778,8 +1786,8 @@ inline SV * parse_one(pTHX_ struct io_struct * io){
         io_register_error(io, ERR_MARKER);
     }
 }
-SV * deep_clone(pTHX_ SV * value);
-AV * deep_array(pTHX_ AV* value){
+inline SV * deep_clone(pTHX_ SV * value);
+inline AV * deep_array(pTHX_ AV* value){
     AV* copy =  (AV*) newAV();
     int c_len;
     int i;
@@ -1790,7 +1798,7 @@ AV * deep_array(pTHX_ AV* value){
     return copy;
 }
 
-HV * deep_hash(pTHX_ HV* value){
+inline HV * deep_hash(pTHX_ HV* value){
     HV * copy =  (HV*) newHV();
     SV * key_value;
     char * key_str;
@@ -1805,11 +1813,11 @@ HV * deep_hash(pTHX_ HV* value){
     return copy;
 }
 
-SV * deep_scalar(pTHX_ SV * value){
+inline SV * deep_scalar(pTHX_ SV * value){
     return deep_clone(aTHX_  value);
 }
 
-SV * deep_clone(pTHX_ SV * value){
+inline SV * deep_clone(pTHX_ SV * value){
     if (SvROK(value)){
         SV * rv = (SV*) SvRV(value);
         SV * copy;
@@ -1843,7 +1851,7 @@ SV * deep_clone(pTHX_ SV * value){
         return copy;
     }
 }
-void ref_clear(pTHX_ HV * go_once, SV *sv){
+inline void ref_clear(pTHX_ HV * go_once, SV *sv){
 
     SV *ref_addr;
     if (! SvROK(sv))
@@ -1866,12 +1874,12 @@ void ref_clear(pTHX_ HV * go_once, SV *sv){
     }
     else if (SvTYPE(ref_addr) == SVt_PVHV){
         HV *ref_hash = (HV *) ref_addr;
-        char **   key;
-        I32  *key_len;
+        char *   key;
+        I32  key_len;
         SV*  item;
 
         hv_iterinit(ref_hash);
-        while(item = hv_iternextsv(ref_hash, key, key_len)){
+        while(item = hv_iternextsv(ref_hash, &key, &key_len)){
             ref_clear(aTHX_  go_once, item);
         };
         hv_clear(ref_hash);
@@ -2068,7 +2076,13 @@ thaw(data, ...)
 void 
 endian()
     PPCODE:
-    fprintf( stderr, "%s\n", GAX);
+    char *x ="dasdf";
+    PerlIO_printf(PerlIO_stderr(), "%s\n", GAX);
+	;
+    //Perl_fprintf(Perl_stderr(), "\n");
+    //fprintf( stderr, "\n");
+    
+    // __BYTE_ORDER, __LITTLE_ENDIAN, __BIG_ENDIAN);
 
 void freeze(data)
     SV * data

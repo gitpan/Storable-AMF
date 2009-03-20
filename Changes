@@ -217,3 +217,10 @@ Revision history for Perl extension Storable::AMF.
 0.5500 ( 1354) 2009-03-12 15:59:44 +0300 
 	- Port to Straberry perl 5.10
 
+0.5600 ( 1411) 2009-03-20 16:35:19 +0300 
+	- Cleanup code
+
+0.5700 ( 1414) 2009-03-20 18:55:44 +0300 
+	- Make work on windows
+	- fix for Win32 build for broken Module::Build
+

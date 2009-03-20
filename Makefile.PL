@@ -7,16 +7,11 @@ eval {
     require ExtUtils::CBuilder; 
     require ExtUtils::ParseXS;
 };
-if (not $@) {
+if (not $@ and ($Config{osname} ne 'MSWin32')) {
     Module::Build::Compat->run_build_pl(args => \@ARGV);
     Module::Build::Compat->write_makefile();
     exit();
 }
-
-use File::Copy;
-use Cwd;
-copy('lib/Storable/AMF.xs', cwd());
-copy('lib/Storable/ppport.h', cwd());
 
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
@@ -25,9 +20,15 @@ copy('lib/Storable/ppport.h', cwd());
 #my $DEFINE = "-D${ENDIAN}_END";
 #my $DEFINE = "-D${ENDIAN}_END  -D_REENTRANT -D_GNU_SOURCE";
 if ($Config{osname} eq 'MSWin32'){
-            $DEFINE.=" -DMSWin32";
-            system "perl", qw( -ibak -p -e), 's/^\s*inline\s*//', "AMF.xs";
+#            system "perl", qw( -ibak -p -e), 's/^\s*inline\s*//', "lib/Storable/AMF.xs";
 }
+exit if ($ARGV eq '--stop');
+
+use File::Copy;
+use Cwd;
+copy('lib/Storable/AMF.xs', cwd());
+copy('lib/Storable/ppport.h', cwd());
+
 our %REQUIRE = ( 
 	PREREQ_PM => {'Module::Build::Compat'=>0.02, 'Module::Build'=> 0.2}, # e.g., Module::Name => 1.1
 	MIN_PERL_VERSION => 5.008000,

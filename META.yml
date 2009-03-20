@@ -1,12 +1,35 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Storable-AMF
-version:      0.56
-version_from: lib/Storable/AMF0.pm
-installdirs:  site
+---
+name: Storable-AMF
+version: 0.57
+author: []
+abstract: Perl extension for serialize/deserialize AMF0/AMF3 data
+license: perl
+resources:
+  license: ~
 requires:
-    Module::Build:                 0.2
-    Module::Build::Compat:         0.02
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.30
+  XSLoader: 0
+  perl: 5.8.0
+build_requires:
+  ExtUtils::CBuilder: 0.15
+  ExtUtils::ParseXS: 0
+  File::Spec: 0
+  FindBin: 0
+  Module::Build: 0.21
+  Test::More: 0
+dynamic_config: 0
+provides:
+  Storable::AMF:
+    file: lib/Storable/AMF.pm
+    version: 0.57
+  Storable::AMF0:
+    file: lib/Storable/AMF0.pm
+    version: 0.57
+  Storable::AMF0::Var:
+    file: lib/Storable/AMF.pm
+  Storable::AMF3:
+    file: lib/Storable/AMF3.pm
+    version: 0.57
+generated_by: Module::Build version 0.32
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2
