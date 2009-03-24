@@ -79,18 +79,41 @@
 // #define GET_NBYTE(ALL, IPOS, TYPE) (sizeof(TYPE) -ALL + IPOS)
 // #define GAX "BIG"
 // #endif
-#if BYTE_ORDER == LITTLE_ENDIAN
-#define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
-#define GAX "LIT"
-#elif BYTE_ORDER == BIG_ENDIAN
-#define GET_NBYTE(ALL, IPOS, TYPE) (sizeof(TYPE) -ALL + IPOS)
-#define GAX "BIG"
-#elif WIN32
-    #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
+// #if BYTE_ORDER == LITTLE_ENDIAN
+//     #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
+//     #define GAX "LIT"
+// #elif BYTE_ORDER == BIG_ENDIAN
+//     #define GET_NBYTE(ALL, IPOS, TYPE) (sizeof(TYPE) -ALL + IPOS)
+//     #define GAX "BIG"
+// #elif WIN32
+//     #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
+//     #define GAX "LIT"
+// #else 
+//     #error Can't figure out byteorder 
+// #endif 
+// 
+
+#if BYTEORDER == 0x1234
     #define GAX "LIT"
-#else 
-    #error Can't figure out byteorder 
-#endif 
+    #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
+#else
+#if BYTEORDER == 0x12345678
+    #define GAX "LIT"
+    #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
+#else
+#if BYTEORDER == 0x87654321
+    #define GAX "BIG"
+    #define GET_NBYTE(ALL, IPOS, TYPE) (sizeof(TYPE) -ALL + IPOS)
+#else
+#if  BYTEORDER == 0x4321
+    #define GAX "BIG"
+    #define GET_NBYTE(ALL, IPOS, TYPE) (sizeof(TYPE) -ALL + IPOS)
+#else
+    #error Unknown byteorder. Please append your byteorder to Storable/AMF.xs
+#endif
+#endif
+#endif
+#endif
 
 // Blin Strawberry perl for Win32
 #ifdef WIN32
@@ -2077,7 +2100,7 @@ void
 endian()
     PPCODE:
     char *x ="dasdf";
-    PerlIO_printf(PerlIO_stderr(), "%s\n", GAX);
+    PerlIO_printf(PerlIO_stderr(), "%s %d %d %d\n", GAX, BYTE_ORDER, LITTLE_ENDIAN, BIG_ENDIAN);
 	;
     //Perl_fprintf(Perl_stderr(), "\n");
     //fprintf( stderr, "\n");

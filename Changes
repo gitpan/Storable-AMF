@@ -224,3 +224,6 @@ Revision history for Perl extension Storable::AMF.
 	- Make work on windows
 	- fix for Win32 build for broken Module::Build
 
+0.5800 ( 1418) 2009-03-24 16:17:19 +0300 
+	- Fix BYTEORDER
+
