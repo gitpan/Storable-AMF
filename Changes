@@ -227,3 +227,9 @@ Revision history for Perl extension Storable::AMF.
 0.5800 ( 1418) 2009-03-24 16:17:19 +0300 
 	- Fix BYTEORDER
 
+0.6000 ( 1444) 2009-03-31 14:35:42 +0400 
+	- tidy
+
+0.6000 ( 1445) 2009-03-31 16:31:28 +0400 
+	- allowed freeze of ref ( REF and SCALAR )
+

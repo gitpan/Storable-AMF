@@ -28,6 +28,7 @@
 #define ERR_EXTRA_BYTE 15
 #define ERR_INT_OVERFLOW 16
 #define ERR_RECURRENT_OBJECT 17
+#define ERR_BAD_REFVAL  18
 
 #define OPT_STRICT  1
 #define OPT_DECODE_UTF8  2
@@ -115,6 +116,9 @@
 #endif
 #endif
 
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
+
+
 // Blin Strawberry perl for Win32
 #ifdef WIN32
 #define inline _inline
@@ -160,7 +164,8 @@ struct io_struct{
     int options;
 };
 
-inline void io_register_error(struct io_struct *io, int );
+inline void io_register_error(struct io_struct *io, int);
+inline void io_register_error_and_free(pTHX_ struct io_struct *io, int, void *);
 inline int
 io_position(struct io_struct *io){
     return io->pos-io->ptr;
@@ -230,6 +235,11 @@ inline void io_register_error(struct io_struct *io, int errtype){
     longjmp(io->target_error, errtype);
 }
 
+inline void io_register_error_and_free(pTHX_ struct io_struct *io, int errtype, void *pointer){
+    if (pointer)
+        sv_2mortal((SV*) pointer);
+    longjmp(io->target_error, errtype);
+}
 inline void io_in_init(pTHX_ struct io_struct * io, SV *io_self, SV* data, int amf3){
     //    PerlInterpreter *my_perl = io->interpreter;
     STRLEN io_len;
@@ -508,7 +518,7 @@ inline void io_write_u24(pTHX_ struct io_struct * io, unsigned int value){
     io->pos+=step;
     return;
 }
-inline void io_write_bytes(pTHX_ struct io_struct* io, char * buffer, int len){
+inline void io_write_bytes(pTHX_ struct io_struct* io, const char * const buffer, int len){
     io_reserve(aTHX_  io, len);
     Copy(buffer, io->pos, len, char);
     io->pos+=len;
@@ -525,6 +535,22 @@ inline void format_reference(pTHX_ struct io_struct * io, SV *ref){
     io_write_marker(aTHX_  io, MARKER0_REFERENCE);
     io_write_u16(aTHX_  io, SvIV(ref));
 }
+inline void format_scalar_ref(pTHX_ struct io_struct * io, SV *ref){
+    const char *const reftype = "REFVAL";
+    
+    io_write_marker(aTHX_  io, MARKER0_TYPED_OBJECT);
+    // special type
+    io_write_u16(aTHX_  io, 6);
+    io_write_bytes(aTHX_  io, reftype, 6);
+
+    // type
+    io_write_u16(aTHX_  io, 6);
+    io_write_bytes(aTHX_  io, reftype, 6);
+    format_one(aTHX_  io, ref);
+    // end marker
+    io_write_u16(aTHX_  io, 0);
+    io_write_marker(aTHX_  io, MARKER0_OBJECT_END);
+}
 
 inline void format_one(pTHX_ struct io_struct *io, SV * one){
 
@@ -536,6 +562,7 @@ inline void format_one(pTHX_ struct io_struct *io, SV * one){
             format_reference(aTHX_  io, *OK);
         }
         else {
+            int type = SvTYPE(rv);
             sv_setiv(*OK, io->RV_COUNT);
             ++io->RV_COUNT;
 
@@ -549,10 +576,13 @@ inline void format_one(pTHX_ struct io_struct *io, SV * one){
                 }
             }
             else if (SvTYPE(rv) == SVt_PVAV) 
-            format_strict_array(aTHX_  io, (AV*) rv);
+                format_strict_array(aTHX_  io, (AV*) rv);
             else if (SvTYPE(rv) == SVt_PVHV) {
                 io_write_marker(aTHX_  io, MARKER0_OBJECT);
                 format_object(aTHX_  io, (HV*) rv);
+            }
+            else if ( type != SVt_PVCV && type !=  SVt_PVGV ) {
+                format_scalar_ref(aTHX_  io, (SV*) rv);
             }
             else {
                 io->message = "bad type of object in stream";
@@ -647,7 +677,7 @@ inline void format_null(pTHX_ struct io_struct *io){
 inline void format_typed_object(pTHX_ struct io_struct *io,  HV * one){
     HV* stash = SvSTASH(one);
     char *class_name = HvNAME(stash);
-    io_write_marker(aTHX_  io, '\x10');
+    io_write_marker(aTHX_  io, MARKER0_TYPED_OBJECT);
     io_write_u16(aTHX_  io, strlen(class_name));
     io_write_bytes(aTHX_  io, class_name, strlen(class_name));
     format_object(aTHX_  io, one);
@@ -895,7 +925,7 @@ inline SV * parse_object(pTHX_ struct io_struct * io){
                 if (io->options & OPT_STRICT){
                     SV* RETVALUE = *av_fetch(io->refs, obj_pos, 0);
                     if (SvREFCNT(RETVALUE) > 1)
-                    io_register_error(io, ERR_RECURRENT_OBJECT);
+                        io_register_error(io, ERR_RECURRENT_OBJECT);
                     ;
                     SvREFCNT_inc_simple_void_NN(RETVALUE);
                     return RETVALUE;
@@ -1128,12 +1158,74 @@ inline SV* parse_xml_document(pTHX_ struct io_struct *io){
     av_push(io->refs, RETVALUE);
     return RETVALUE;
 }
+inline SV *parse_scalar_ref(pTHX_ struct io_struct *io){
+
+        char *savepos = io->pos;
+        SV * obj;
+        int obj_pos;
+        int len_next;
+        char *key;
+        SV *value;
+
+        io->pos+=6;
+        obj =  newSV(0);
+        av_push(io->refs,  obj);
+        obj_pos = av_len(io->refs);
+        value = 0;
+
+        while(1){
+            len_next = io_read_u16(io);
+            if (len_next == 0) {
+                char object_end;
+                object_end= io_read_marker(io);
+                if ((object_end == MARKER0_OBJECT_END))
+                {
+                    SV* RETVALUE = *av_fetch(io->refs, obj_pos, 0);
+                    if (!value)
+                        io_register_error(io, ERR_BAD_REFVAL);
+                        sv_setsv(obj, newRV_noinc(value));
+
+                    if (io->options & OPT_STRICT){
+                        if (SvREFCNT(RETVALUE) > 1)
+                            io_register_error_and_free(aTHX_ io, ERR_RECURRENT_OBJECT, value);
+                        ;
+                        SvREFCNT_inc_simple_void_NN(RETVALUE);
+                        return RETVALUE;
+                    }
+                    else {
+                        SvREFCNT_inc_simple_void_NN(RETVALUE);
+                        return RETVALUE;
+                    }
+                }
+                else {
+                    io_register_error_and_free(aTHX_ io, ERR_BAD_REFVAL, value);
+                }
+            }
+            else if ( len_next ==  6) {
+                key = io_read_chars(io, len_next);
+                if (strncmp(key, "REFVAL", 6) || value )
+                    io_register_error_and_free(aTHX_ io, ERR_BAD_REFVAL, value);
+                
+                value = parse_one(aTHX_  io);
+            }
+            else {
+                io_register_error_and_free(aTHX_ io, ERR_BAD_REFVAL, value);
+            }
+    }
+}
 inline SV* parse_typed_object(pTHX_ struct io_struct *io){
     SV* RETVALUE;
     HV *stash;
     int len;
 
     len = io_read_u16(io);
+    if (len == 6 && !strncmp(io->pos, "REFVAL", 6)){
+        // SCALAR
+        RETVALUE = parse_scalar_ref(aTHX_ io);
+        if (RETVALUE)
+            return RETVALUE;
+        
+    }
     if (io->options & OPT_STRICT){
         stash = gv_stashpvn(io->pos, len, 0);
     }
@@ -1791,7 +1883,7 @@ inline SV * amf3_parse_one(pTHX_ struct io_struct * io){
     unsigned char marker;
 
     marker = (unsigned char) io_read_marker(io);
-    if (marker < (sizeof amf3_parse_subs)/sizeof( amf3_parse_subs[0])){
+    if (marker < ARRAY_SIZE( amf3_parse_subs )){
         return (amf3_parse_subs[marker])(aTHX_ io);
     }
     else {
@@ -1800,9 +1892,8 @@ inline SV * amf3_parse_one(pTHX_ struct io_struct * io){
 }
 inline SV * parse_one(pTHX_ struct io_struct * io){
     unsigned char marker;
-
     marker = (unsigned char) io_read_marker(io);
-    if ( marker < (sizeof parse_subs)/sizeof( parse_subs[0])){
+    if ( marker < ARRAY_SIZE( parse_subs )){
         return (parse_subs[marker])(aTHX_ io);
     }
     else {
@@ -2100,7 +2191,7 @@ void
 endian()
     PPCODE:
     char *x ="dasdf";
-    PerlIO_printf(PerlIO_stderr(), "%s %d %d %d\n", GAX, BYTE_ORDER, LITTLE_ENDIAN, BIG_ENDIAN);
+    PerlIO_printf(PerlIO_stderr(), "%s %x\n", GAX, BYTEORDER);
 	;
     //Perl_fprintf(Perl_stderr(), "\n");
     //fprintf( stderr, "\n");

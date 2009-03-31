@@ -1,10 +1,11 @@
 package Storable::AMF;
+
 #use 5.008008;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
 use Storable::AMF0;
-our $VERSION = '0.58';
+our $VERSION = '0.60';
 use vars qw/$OPT/;
 require Exporter;
 our @ISA = qw(Exporter);
@@ -13,9 +14,13 @@ our @ISA = qw(Exporter);
 # names by default without a very good reason. Use EXPORT_OK instead.
 # Do not simply export all your public functions/methods/constants.
 
-our %EXPORT_TAGS = ( 'all' => [ qw(
-	freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store ref_lost_memory ref_clear
-) ] );
+our %EXPORT_TAGS = (
+    'all' => [
+        qw(
+          freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store ref_lost_memory ref_clear
+          )
+    ]
+);
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
@@ -24,65 +29,73 @@ our @EXPORT = qw();
 our $OPTS;
 
 no strict 'refs';
-*{"Storable::AMF::$_"} = *{"Storable::AMF0::$_"} for @{$EXPORT_TAGS{'all'}};
+*{"Storable::AMF::$_"} = *{"Storable::AMF0::$_"} for @{ $EXPORT_TAGS{'all'} };
+
 package Storable::AMF0::Var;
 use Carp qw(croak);
 use Scalar::Util qw(reftype);
-our %OPTS =
-(   
-    STRICT => 0,
-    UTF8_ENCODE=>1,
-    UTF8_DECODE=>2,
+our %OPTS = (
+    STRICT      => 0,
+    UTF8_ENCODE => 1,
+    UTF8_DECODE => 2,
 );
 our %OPT_DEFAULT = (
-    STRICT => 0,
-    UTF8_ENCODE=>0,
-    UTF8_DECODE=>0,
+    STRICT      => 0,
+    UTF8_ENCODE => 0,
+    UTF8_DECODE => 0,
 );
-sub options{
+
+sub options {
     return sprintf "( %s )", join ", ", keys %OPTS;
 }
-sub TIESCALAR{
-    my $class = shift;
+
+sub TIESCALAR {
+    my $class      = shift;
     my $scalar_ref = shift;
     croak "First arg must be scalarref" unless reftype $scalar_ref eq 'SCALAR';
-    my $name  = shift;
-    croak "Unknown option $name. Valid are ".options()  unless exists $OPTS{$name};
-    my $self  = bless [ $scalar_ref, $OPTS{$name} ], $class;
-    $self->STORE($OPT_DEFAULT{$name});
+    my $name = shift;
+    croak "Unknown option $name. Valid are " . options()
+      unless exists $OPTS{$name};
+    my $self = bless [ $scalar_ref, $OPTS{$name} ], $class;
+    $self->STORE( $OPT_DEFAULT{$name} );
     return $self;
-        
+
 }
-sub STORE{
+
+sub STORE {
     my $self  = shift;
     my $value = shift;
     my @var;
-    (@var) = (unpack "(C)*", (${$$self[0]} ||""));
-    $var[$$self[1]] = $value ;
-    ${$$self[0]} = pack "(C)*", (map { scalar $_ || 0 } @var);
+    (@var) = ( unpack "(C)*", ( ${ $$self[0] } || "" ) );
+    $var[ $$self[1] ] = $value;
+    ${ $$self[0] } = pack "(C)*", ( map { scalar $_ || 0 } @var );
     $value;
 }
-sub FETCH{
-    my $self  = shift;
-    my @var = unpack "C*", ${$$self[0]}||"";
-    $var[$$self[1]] ;
+
+sub FETCH {
+    my $self = shift;
+    my @var = unpack "C*", ${ $$self[0] } || "";
+    $var[ $$self[1] ];
 }
+
 package Storable::AMF0;
 
-sub ref_var{
+sub ref_var {
     my $name = shift;
     my $s;
-    tie ${"Storable::AMF0::$name"}, "Storable::AMF0::Var", \$Storable::AMF::OPT, $name;
+    tie ${"Storable::AMF0::$name"}, "Storable::AMF0::Var", \$Storable::AMF::OPT,
+      $name;
 }
-for my $pack ("Storable::AMF0"){
+for my $pack ("Storable::AMF0") {
+
     #*{$pack."::$_"} = ref_var($_) for keys %OPTS;
     ref_var($_) for keys %OPTS;
 }
 use vars qw/$STRICT $UTF8_ENCODE $UTF8_DECODE/;
 
-$STRICT = 0;
-$UTF8_ENCODE= 0;
-$UTF8_DECODE= 0;
+$STRICT      = 0;
+$UTF8_ENCODE = 0;
+$UTF8_DECODE = 0;
 
 # print unpack "H*", $Storable::AMF0::OPTS;
 1;
@@ -137,6 +150,7 @@ And some cases faster then Storable( for me always)
   None by default.
 
 =cut
+
 =head1 MOTIVATION
 
 There are several modules for work with AMF data and packets written in perl, but them are lack a speed.

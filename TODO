@@ -1,6 +1,5 @@
     - realize readObject, CanRead, 
     - Add test for store function
-    - Add experimental store of REF, SCALAR
     - Add descriptive error messages.
     - more documentation on thaw ARRAY, XML
     - Improve testleak for strings
@@ -8,3 +7,5 @@
     - add feature enabled
     - max array opt
     - Add remove eof checks for some options
+    - add examples
+    - add proto for store and etc..
