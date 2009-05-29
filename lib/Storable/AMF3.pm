@@ -4,7 +4,7 @@ package Storable::AMF3;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.60';
+our $VERSION = '0.63';
 use subs qw(freeze thaw);
 
 require Exporter;
@@ -18,8 +18,9 @@ our @ISA = qw(Exporter);
 our %EXPORT_TAGS = (
     'all' => [
         qw(
-          freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store
+          freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store nstore
           ref_clear ref_lost_memory
+          deparse_amf
           )
     ]
 );
@@ -28,18 +29,18 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw();
 
-sub retrieve {
+sub retrieve($) {
     my $file = shift;
-    open my $fh, "<", $file or die "Can't open file \"$file\" for read.";
+    open my $fh, "<", $file or croak "Can't open file \"$file\" for read.";
     my $buf;
     read $fh, $$buf, -s $fh;
     close($fh);
     return thaw($$buf);
 }
 
-sub lock_retrieve {
+sub lock_retrieve($) {
     my $file = shift;
-    open my $fh, "<", $file or die "Can't open file \"$file\" for read.";
+    open my $fh, "<", $file or croak "Can't open file \"$file\" for read.";
     flock $fh, LOCK_SH;
     my $buf;
     read $fh, $$buf, -s $fh;
@@ -48,10 +49,10 @@ sub lock_retrieve {
     return thaw($$buf);
 }
 
-sub store {
+sub store($$) {
     my $object = shift;
     my $file   = shift;
-    open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
+    open my $fh, "+>", $file or croak "Can't open file \"$file\" for write.";
     truncate $fh, 0;
 
     #print $fh freeze($object);
@@ -61,10 +62,10 @@ sub store {
     close($fh) and defined $$freeze;
 }
 
-sub lock_store {
+sub lock_store($$) {
     my $object = shift;
     my $file   = shift;
-    open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
+    open my $fh, "+>", $file or croak "Can't open file \"$file\" for write.";
     flock $fh, LOCK_EX;
     truncate $fh, 0;
 
@@ -76,10 +77,10 @@ sub lock_store {
     close($fh) and defined $$freeze;
 }
 
-sub nstore {
+sub nstore($$) {
     my $object = shift;
     my $file   = shift;
-    open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
+    open my $fh, "+>", $file or croak "Can't open file \"$file\" for write.";
     truncate $fh, 0;
 
     #print $fh freeze($object);
@@ -89,10 +90,10 @@ sub nstore {
     close($fh) and defined $$freeze;
 }
 
-sub lock_nstore {
+sub lock_nstore($$) {
     my $object = shift;
     my $file   = shift;
-    open my $fh, "+>", $file or die "Can't open file \"$file\" for write.";
+    open my $fh, "+>", $file or croak "Can't open file \"$file\" for write.";
     flock $fh, LOCK_EX;
     truncate $fh, 0;
     my $freeze = \freeze($object);
@@ -105,11 +106,6 @@ sub lock_nstore {
     flock $fh, LOCK_UN;
     close($fh) and defined $$freeze;
 }
-
-#~ sub dclone{
-#~ 	my $object = shift;
-#~ 	return thaw(treeze $_[0]);
-#~ }
 require XSLoader;
 XSLoader::load( 'Storable::AMF', $VERSION );
 no warnings;
@@ -157,6 +153,14 @@ Storable::AMF3 - Perl extension for serialize/deserialize AMF3 data
   lock_store \%table, 'file';
   lock_nstore \%table, 'file';
   $hashref = lock_retrieve('file');
+
+  # Deparse one object
+  use Storable::AMF0 qw(deparse_amf); 
+
+  my( $obj, $length_of_packet ) = deparse_amf( my $bytea = freeze($a1) . freeze($a) ... );
+
+  - or -
+  $obj = deparse_amf( freeze($a1) . freeze($a) ... );
 
 =cut
 
@@ -213,6 +217,11 @@ And some cases faster then Storable( for me always)
 =item ref_lost_memory $obj
   --- test if object contain lost memory fragments inside.
   (Example do { my $a = []; @$a=$a; $a})
+
+=item deparse_amf $bytea 
+  --- deparse from bytea one item
+  Return one object and number of bytes readed
+  if scalar context return object
 
 =back
 

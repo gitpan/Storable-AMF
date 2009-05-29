@@ -50,6 +50,10 @@ t/51-strict-pragma.t
 t/52-special-case.t
 t/53-strict-pragma-amf0.t
 t/54-strict-pragma-amf3.t
+t/55-store-etc-amf0.t
+t/56-store-etc-amf3.t
+t/57-deparse-amf0.t
+t/58-deparse-amf3.t
 t/AMF0/01-array-0-foo-bar-baz.pack
 t/AMF0/01-array-foo-bar-x2.pack
 t/AMF0/01-boolean-false.pack
@@ -138,4 +142,4 @@ t/AMF0/utf8-00.pack
 t/AMF0/utf8-01.pack
 t/AMF0/utf8-02.pack
 t/AMF0/zero.pack
-META.yml
+META.yml                                 Module meta-data (added by MakeMaker)

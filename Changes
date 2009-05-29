@@ -233,3 +233,10 @@ Revision history for Perl extension Storable::AMF.
 0.6000 ( 1445) 2009-03-31 16:31:28 +0400 
 	- allowed freeze of ref ( REF and SCALAR )
 
+0.6100 ( 1447) 2009-03-31 17:25:10 +0400 
+	- add proto for store and etc .. add test for these functions
+
+0.6300 ( 1523) 2009-04-10 14:48:01 +0400 
+	- change croaking for file operation 
+	- perltidy
+	- function deparse_amf 

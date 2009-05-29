@@ -1,11 +1,9 @@
 package Storable::AMF;
-
-#use 5.008008;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
 use Storable::AMF0;
-our $VERSION = '0.60';
+our $VERSION = '0.63';
 use vars qw/$OPT/;
 require Exporter;
 our @ISA = qw(Exporter);
@@ -17,7 +15,8 @@ our @ISA = qw(Exporter);
 our %EXPORT_TAGS = (
     'all' => [
         qw(
-          freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store ref_lost_memory ref_clear
+          freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store nstore ref_lost_memory ref_clear
+          deparse_amf
           )
     ]
 );
@@ -31,73 +30,8 @@ our $OPTS;
 no strict 'refs';
 *{"Storable::AMF::$_"} = *{"Storable::AMF0::$_"} for @{ $EXPORT_TAGS{'all'} };
 
-package Storable::AMF0::Var;
-use Carp qw(croak);
-use Scalar::Util qw(reftype);
-our %OPTS = (
-    STRICT      => 0,
-    UTF8_ENCODE => 1,
-    UTF8_DECODE => 2,
-);
-our %OPT_DEFAULT = (
-    STRICT      => 0,
-    UTF8_ENCODE => 0,
-    UTF8_DECODE => 0,
-);
-
-sub options {
-    return sprintf "( %s )", join ", ", keys %OPTS;
-}
-
-sub TIESCALAR {
-    my $class      = shift;
-    my $scalar_ref = shift;
-    croak "First arg must be scalarref" unless reftype $scalar_ref eq 'SCALAR';
-    my $name = shift;
-    croak "Unknown option $name. Valid are " . options()
-      unless exists $OPTS{$name};
-    my $self = bless [ $scalar_ref, $OPTS{$name} ], $class;
-    $self->STORE( $OPT_DEFAULT{$name} );
-    return $self;
-
-}
-
-sub STORE {
-    my $self  = shift;
-    my $value = shift;
-    my @var;
-    (@var) = ( unpack "(C)*", ( ${ $$self[0] } || "" ) );
-    $var[ $$self[1] ] = $value;
-    ${ $$self[0] } = pack "(C)*", ( map { scalar $_ || 0 } @var );
-    $value;
-}
-
-sub FETCH {
-    my $self = shift;
-    my @var = unpack "C*", ${ $$self[0] } || "";
-    $var[ $$self[1] ];
-}
-
 package Storable::AMF0;
 
-sub ref_var {
-    my $name = shift;
-    my $s;
-    tie ${"Storable::AMF0::$name"}, "Storable::AMF0::Var", \$Storable::AMF::OPT,
-      $name;
-}
-for my $pack ("Storable::AMF0") {
-
-    #*{$pack."::$_"} = ref_var($_) for keys %OPTS;
-    ref_var($_) for keys %OPTS;
-}
-use vars qw/$STRICT $UTF8_ENCODE $UTF8_DECODE/;
-
-$STRICT      = 0;
-$UTF8_ENCODE = 0;
-$UTF8_DECODE = 0;
-
-# print unpack "H*", $Storable::AMF0::OPTS;
 1;
 __END__
 
@@ -133,6 +67,15 @@ Storable::AMF - Perl extension for serialize/deserialize AMF0/AMF3 data
   lock_store \%table, 'file';
   lock_nstore \%table, 'file';
   $hashref = lock_retrieve('file');
+  
+  # Deparse one object
+  use Storable::AMF0 qw(deparse_amf); 
+
+  my( $obj, $length_of_packet ) = deparse_amf( my $bytea = freeze($a1) . freeze($a) ... );
+
+  - or -
+  $obj = deparse_amf( freeze($a1) . freeze($a) ... );
+
 
 =cut
 
@@ -190,6 +133,11 @@ This module writen in C for speed. Also this package allow freeze and thaw AMF3 
 
 =item lock_retrieve $file
   --- Same as retrieve but with advisory locking
+
+=item deparse_amf $bytea 
+  --- deparse from bytea one item
+  Return one object and number of bytes readed
+  if scalar context return object
 
 =item dclone $file
   --- Deep cloning data structure

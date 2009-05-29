@@ -2085,6 +2085,72 @@ thaw(data, ...)
             croak("USAGE Storable::AMF0::thaw( $amf0). First arg must be string");
         }
 
+void
+deparse_amf(data, ...)
+    SV * data;
+    PROTOTYPE: $;$
+    INIT:
+        SV* retvalue;
+        SV* io_self;
+        struct io_struct io_record;
+    PPCODE:
+
+        if (SvMAGICAL(data))
+        mg_get(data);
+        // sting options mode
+        if (1 >= items ){
+            io_record.options = 0;
+        }
+        else {
+            SV * opt = ST(1);
+            if (! SvIOK(opt)){
+                warn( "options are not integer" );
+                return ;
+            };
+            io_record.options = SvIV(opt);
+        };
+
+        if (SvPOKp(data)){
+            int error_code;
+            if (SvUTF8(data)) {
+                croak("Storable::AMF0::deparse_amf(data, ...): data is in utf8. Can't process utf8");
+            } else {
+            };
+            io_self = newRV_noinc((SV*)newAV());
+            io_in_init(aTHX_  &io_record, io_self, data, AMF0);
+            sv_2mortal(io_self);
+            if ( !(error_code = setjmp(io_record.target_error))){
+                
+                retvalue = (SV*) (parse_one(aTHX_  &io_record));
+                retvalue = sv_2mortal(retvalue);
+                sv_setsv(ERRSV, &PL_sv_undef);
+                if (GIMME_V == G_ARRAY){
+                    XPUSHs(retvalue);
+                    XPUSHs( sv_2mortal(newSViv( io_record.pos - io_record.ptr )) );
+                }
+                else {
+                    XPUSHs(retvalue);
+                }
+            }
+            else {
+                //croak("Failed parse string. unspected EOF");
+                //TODO: ERROR CODE HANDLE
+                if (io_record.options & OPT_ERROR_RAISE){
+                    croak("Error at parse AMF0 (%d)", error_code);
+                }
+                else {
+                    sv_setiv(ERRSV, error_code);
+                    sv_setpvf(ERRSV, "Error at parse AMF0 (%d)", error_code);
+                    SvIOK_on(ERRSV);
+                }
+                io_in_destroy(aTHX_  &io_record, 0); // all obects
+
+            }
+        }
+        else {
+            croak("USAGE Storable::AMF0::deparse( $amf0). First arg must be string");
+        }
+
 
 
 void freeze(data)
@@ -2115,6 +2181,70 @@ void freeze(data)
 
 MODULE = Storable::AMF0		PACKAGE = Storable::AMF3		
 
+void
+deparse_amf(data, ...)
+    SV * data
+    PROTOTYPE: $;$
+    INIT:
+        SV* retvalue;
+        SV* io_self;
+        struct io_struct io_record;
+    PPCODE:
+
+        if (SvMAGICAL(data))
+        mg_get(data);
+        // Steting options mode
+        if (1 == items){
+            io_record.options = 0;
+        }
+        else {
+            SV * opt = ST(1);
+            if (! SvIOK(opt)){
+                sv_dump(opt);
+                warn( "options are not integer" );
+                return ;
+            };
+            io_record.options = SvIV(opt);
+        };
+
+        if (SvPOKp(data)){
+            int error_code;
+            if (SvUTF8(data)) {
+                croak("Storable::AMF0::deparse_amf(data, ...): data is in utf8. Can't process utf8");
+            }
+            io_self = newRV_noinc((SV*)newAV());
+            io_in_init(aTHX_  &io_record, io_self, data, AMF3);
+            sv_2mortal(io_self);
+            if ( ! (error_code = setjmp(io_record.target_error))){
+                retvalue = (SV*) (amf3_parse_one(aTHX_  &io_record));
+                sv_2mortal(retvalue);
+                sv_setsv(ERRSV, &PL_sv_undef);
+
+                if (GIMME_V == G_ARRAY){
+                    XPUSHs(retvalue);
+                    XPUSHs( sv_2mortal(newSViv( io_record.pos - io_record.ptr )) );
+                }
+                else {
+                    XPUSHs(retvalue);
+                }
+            }
+            else {
+                if (io_record.options & OPT_ERROR_RAISE){
+                    croak("Error at parse AMF0 (%d)", error_code);
+                }
+                else {
+                    sv_setiv(ERRSV, error_code);
+                    sv_setpvf(ERRSV, "AMF3 parse failed. (%d)", error_code);
+                    SvIOK_on(ERRSV);
+                }
+
+                io_in_destroy(aTHX_  &io_record, 0);
+
+            }
+        }
+        else {
+            croak("USAGE Storable::AMF3::deparse_amf( $amf3). First arg must be string");
+        }
 
 void
 thaw(data, ...)
@@ -2150,20 +2280,7 @@ thaw(data, ...)
             io_self = newRV_noinc((SV*)newAV());
             io_in_init(aTHX_  &io_record, io_self, data, AMF3);
             sv_2mortal(io_self);
-            if (error_code = setjmp(io_record.target_error)){
-                if (io_record.options & OPT_ERROR_RAISE){
-                    croak("Error at parse AMF0 (%d)", error_code);
-                }
-                else {
-                    sv_setiv(ERRSV, error_code);
-                    sv_setpvf(ERRSV, "AMF3 parse failed. (%d)", error_code);
-                    SvIOK_on(ERRSV);
-                }
-
-                io_in_destroy(aTHX_  &io_record, 0);
-
-            }
-            else {
+            if ( ! (error_code = setjmp(io_record.target_error))){
                 retvalue = (SV*) (amf3_parse_one(aTHX_  &io_record));
                 sv_2mortal(retvalue);
                 if (io_record.pos!=io_record.end){
@@ -2181,6 +2298,19 @@ thaw(data, ...)
                     sv_setsv(ERRSV, &PL_sv_undef);
                     XPUSHs(retvalue);
                 };
+            }
+            else {
+                if (io_record.options & OPT_ERROR_RAISE){
+                    croak("Error at parse AMF0 (%d)", error_code);
+                }
+                else {
+                    sv_setiv(ERRSV, error_code);
+                    sv_setpvf(ERRSV, "AMF3 parse failed. (%d)", error_code);
+                    SvIOK_on(ERRSV);
+                }
+
+                io_in_destroy(aTHX_  &io_record, 0);
+
             }
         }
         else {

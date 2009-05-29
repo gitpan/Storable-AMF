@@ -15,8 +15,8 @@ sub my_ok(){
     is_deeply( thaw(freeze $_), $_, $@);
 }
 
-store (\(my $g='a'), 'hello');
-print Dumper(retrieve 'hello');
+#~ store (\(my $g='a'), 't/hello');
+#~ print Dumper(retrieve 't/hello');
 my_test for sub{};
 my_ok for \(my ($a, $b, $c, $d) = (undef, 'a', 1,  ));
 my_test for bless sub {}, 'a';
