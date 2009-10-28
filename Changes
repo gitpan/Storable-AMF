@@ -236,7 +236,14 @@ Revision history for Perl extension Storable::AMF.
 0.6100 ( 1447) 2009-03-31 17:25:10 +0400 
 	- add proto for store and etc .. add test for these functions
 
-0.6300 ( 1523) 2009-04-10 14:48:01 +0400 
+0.6300 ( 1766) 2009-04-10 14:48:01 +0400 
 	- change croaking for file operation 
 	- perltidy
 	- function deparse_amf 
+	- added deparse test for amf0
+	- deparse for AMF0 && AMF3
+	- added parse_amf
+
+0.6400 ( 1904) 2009-08-27 01:10:02 +0400 
+        - bug in thaw for empty string
+    

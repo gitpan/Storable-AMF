@@ -898,7 +898,8 @@ inline int amf3_read_integer(struct io_struct *io){
 inline SV * parse_utf8(pTHX_ struct io_struct * io){
     int string_len = io_read_u16(io);
     SV * RETVALUE;
-    RETVALUE = newSVpv(io_read_chars(io, string_len), string_len);
+    char *x = io_read_chars(io, string_len);
+    RETVALUE = newSVpvn(x, string_len);
     if (io->options & OPT_DECODE_UTF8)
     SvUTF8_on(RETVALUE);
 
@@ -2275,7 +2276,7 @@ thaw(data, ...)
         if (SvPOKp(data)){
             int error_code;
             if (SvUTF8(data)) {
-                croak("Storable::AMF0::thaw(data, ...): data is in utf8. Can't process utf8");
+                croak("Storable::AMF3::thaw(data, ...): data is in utf8. Can't process utf8");
             }
             io_self = newRV_noinc((SV*)newAV());
             io_in_init(aTHX_  &io_record, io_self, data, AMF3);
@@ -2301,7 +2302,7 @@ thaw(data, ...)
             }
             else {
                 if (io_record.options & OPT_ERROR_RAISE){
-                    croak("Error at parse AMF0 (%d)", error_code);
+                    croak("Error at parse AMF3 (%d)", error_code);
                 }
                 else {
                     sv_setiv(ERRSV, error_code);

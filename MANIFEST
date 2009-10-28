@@ -142,4 +142,3 @@ t/AMF0/utf8-00.pack
 t/AMF0/utf8-01.pack
 t/AMF0/utf8-02.pack
 t/AMF0/zero.pack
-META.yml                                 Module meta-data (added by MakeMaker)
