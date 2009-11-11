@@ -17,6 +17,7 @@ t/03-format.t
 t/04-blessed.t
 t/05-dclone.t
 t/06-last-undef.t
+t/07-pod.t
 t/09-aux-utility.t
 t/10-dual-var.t
 t/22-one.t
@@ -54,6 +55,7 @@ t/55-store-etc-amf0.t
 t/56-store-etc-amf3.t
 t/57-deparse-amf0.t
 t/58-deparse-amf3.t
+t/60-bug.t
 t/AMF0/01-array-0-foo-bar-baz.pack
 t/AMF0/01-array-foo-bar-x2.pack
 t/AMF0/01-boolean-false.pack
@@ -142,3 +144,4 @@ t/AMF0/utf8-00.pack
 t/AMF0/utf8-01.pack
 t/AMF0/utf8-02.pack
 t/AMF0/zero.pack
+META.yml

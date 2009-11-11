@@ -6,11 +6,11 @@ my $a = eval {
     require ExtUtils::CBuilder;
     require ExtUtils::ParseXS;
 };
-if ( not $@ and ( $Config{osname} ne 'MSWin32' ) ) {
-    Module::Build::Compat->run_build_pl( args => \@ARGV );
-    Module::Build::Compat->write_makefile();
-    exit();
-}
+#~ if ( not $@ and ( $Config{osname} ne 'MSWin32' ) ) {
+#~     Module::Build::Compat->run_build_pl( args => \@ARGV );
+#~     Module::Build::Compat->write_makefile();
+#~     exit();
+#~ }
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -21,7 +21,7 @@ if ( $Config{osname} eq 'MSWin32' ) {
 
 #            system "perl", qw( -ibak -p -e), 's/^\s*inline\s*//', "lib/Storable/AMF.xs";
 }
-exit if ( $ARGV eq '--stop' );
+exit if ( @ARGV && $ARGV[0] eq '--stop' );
 
 use File::Copy;
 use Cwd;
@@ -29,8 +29,12 @@ copy( 'lib/Storable/AMF.xs',   cwd() );
 copy( 'lib/Storable/ppport.h', cwd() );
 
 our %REQUIRE = (
-    PREREQ_PM => { 'Module::Build::Compat' => 0.02, 'Module::Build' => 0.2 }
+    PREREQ_PM => { 
+        'Module::Build::Compat' => 0.02, 
+        'Module::Build' => 0.2,
+        }
     ,    # e.g., Module::Name => 1.1
+    DISTVNAME => './Storable-AMF-0.65',
     MIN_PERL_VERSION => 5.008000,
 );
 
@@ -47,8 +51,6 @@ if ( $ExtUtils::MakeMaker::VERSION < 6.48 ) {
 
 #print $ExtUtils::MakeMaker::VERSION, "\n";
 
-#print "This is ${ENDIAN}_ENDIAN machine\n";
-
 our %MyModule = (
     NAME         => 'Storable::AMF',
     VERSION_FROM => 'lib/Storable/AMF0.pm',    # finds $VERSION
@@ -62,9 +64,6 @@ our %MyModule = (
           )
         : ()
     ),
-
-    #    LIBS              => [''], # e.g., '-lm'
-    DEFINE => $DEFINE,  # e.g., '-DHAVE_SOMETHING'
     INC    => '-I.',    # e.g., '-I. -I/usr/include/other'
                         # Un-comment this if you add C files to link with later:
          # OBJECT            => '$(O_FILES)', # link all the C files too
