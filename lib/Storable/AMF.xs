@@ -226,7 +226,7 @@ io_reserve(pTHX_ struct io_struct *io, int len){
         while( buf_len < ipos + len + io->buffer_step_inc){
             buf_len *= 4;
         }
-        io->ptr = SvGROW(io->sv_buffer, buf_len);
+        io->ptr = (unsigned char *) SvGROW(io->sv_buffer, buf_len);
         io->pos = io->ptr + ipos;
         io->end = io->ptr + SvLEN(io->sv_buffer);
     }
@@ -243,7 +243,7 @@ inline void io_register_error_and_free(pTHX_ struct io_struct *io, int errtype, 
 inline void io_in_init(pTHX_ struct io_struct * io, SV *io_self, SV* data, int amf3){
     //    PerlInterpreter *my_perl = io->interpreter;
     STRLEN io_len;
-    io->ptr = SvPVX(data);
+    io->ptr = (unsigned char *) SvPVX(data);
     io_len  = SvLEN(data);
     io->end = io->ptr + SvCUR(data);
     io->pos = io->ptr;
@@ -326,9 +326,9 @@ inline void io_out_init(pTHX_ struct io_struct *io, SV* io_self, int amf3){
 
     }
     io->buffer_step_inc = ibuf_step;
-    io->ptr = SvPV_nolen(io->sv_buffer);
+    io->ptr = (unsigned char *) SvPV_nolen(io->sv_buffer);
     io->pos = io->ptr;
-    io->end = SvEND(io->sv_buffer);
+    io->end = (unsigned char *) SvEND(io->sv_buffer);
     io->message = "";
     io->status  = 'w';
     io->RV_COUNT = 0;
@@ -714,7 +714,7 @@ inline void io_write_u24(pTHX_ struct io_struct * io, unsigned int value);
 inline double io_read_double(struct io_struct *io){
     const int step = sizeof(double);
     double a;
-    char * ptr_in  = io->pos;
+    unsigned char * ptr_in  = io->pos;
     char * ptr_out = (char *) &a; 
     io_require(io, step);
     ptr_out[GET_NBYTE(step, 0, a)] = ptr_in[0] ;
@@ -729,13 +729,13 @@ inline double io_read_double(struct io_struct *io){
     return a;
 }
 inline char *io_read_bytes(struct io_struct *io, int len){
-    char * pos = io->pos;
+    unsigned char * pos = io->pos;
     io_require(io, len);
     io->pos+=len;
     return pos;
 }
 inline char *io_read_chars(struct io_struct *io, int len){
-    char * pos = io->pos;
+    unsigned char * pos = io->pos;
     io_require(io, len);
     io->pos+=len;
     return pos;
@@ -743,7 +743,7 @@ inline char *io_read_chars(struct io_struct *io, int len){
 
 inline char io_read_marker(struct io_struct * io){
     const int step = 1;
-    char marker;
+    unsigned char marker;
     io_require(io, step);
     marker = *(io->pos);
     io->pos++;
@@ -753,7 +753,7 @@ inline int io_read_u8(struct io_struct * io){
     const int step = 1;
     union{
         unsigned int x;
-        char bytes[8];
+        unsigned char bytes[8];
     } str;
     io_require(io, step);
     str.x = 0;
@@ -1161,7 +1161,7 @@ inline SV* parse_xml_document(pTHX_ struct io_struct *io){
 }
 inline SV *parse_scalar_ref(pTHX_ struct io_struct *io){
 
-        char *savepos = io->pos;
+        unsigned char *savepos = io->pos;
         SV * obj;
         int obj_pos;
         int len_next;
@@ -1220,7 +1220,7 @@ inline SV* parse_typed_object(pTHX_ struct io_struct *io){
     int len;
 
     len = io_read_u16(io);
-    if (len == 6 && !strncmp(io->pos, "REFVAL", 6)){
+    if (len == 6 && !strncmp( (char *)io->pos, "REFVAL", 6)){
         // SCALAR
         RETVALUE = parse_scalar_ref(aTHX_ io);
         if (RETVALUE)
@@ -1228,10 +1228,10 @@ inline SV* parse_typed_object(pTHX_ struct io_struct *io){
         
     }
     if (io->options & OPT_STRICT){
-        stash = gv_stashpvn(io->pos, len, 0);
+        stash = gv_stashpvn((char *)io->pos, len, 0);
     }
     else {
-        stash = gv_stashpvn(io->pos, len, GV_ADD );
+        stash = gv_stashpvn((char *)io->pos, len, GV_ADD );
     }
     io->pos+=len;
     RETVALUE = parse_object(aTHX_  io);
@@ -1250,6 +1250,7 @@ inline SV* parse_boolean(pTHX_ struct io_struct * io){
 }
 
 inline SV * amf3_parse_one(pTHX_ struct io_struct *io);
+SV *amf3_parse_undefined(pTHX_ struct io_struct *io);
 inline SV * amf3_parse_undefined(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSV(0);

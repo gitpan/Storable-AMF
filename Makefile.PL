@@ -34,7 +34,7 @@ our %REQUIRE = (
         'Module::Build' => 0.2,
         }
     ,    # e.g., Module::Name => 1.1
-    DISTVNAME => './Storable-AMF-0.65',
+    #DISTVNAME => './Storable-AMF-0.65',
     MIN_PERL_VERSION => 5.008000,
 );
 

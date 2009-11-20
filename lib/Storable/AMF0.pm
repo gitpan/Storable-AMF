@@ -4,7 +4,7 @@ package Storable::AMF0;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.65';
+our $VERSION = '0.66';
 use subs qw(freeze thaw);
 use Scalar::Util qw(refaddr reftype);    # for ref_circled
 
