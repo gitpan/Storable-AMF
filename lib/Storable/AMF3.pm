@@ -1,10 +1,8 @@
 package Storable::AMF3;
-
-#use 5.008008;
 use strict;
 use warnings;
 use Fcntl qw(:flock);
-our $VERSION = '0.66';
+our $VERSION = '0.70';
 use subs qw(freeze thaw);
 
 require Exporter;
@@ -31,81 +29,43 @@ our @EXPORT = qw();
 
 sub retrieve($) {
     my $file = shift;
-    open my $fh, "<", $file or croak "Can't open file \"$file\" for read.";
+    my $lock = shift;
+
+    open my $fh, "<:raw", $file or croak "Can't open file \"$file\" for read.";
+    flock $fh, LOCK_SH if $lock;
     my $buf;
-    read $fh, $$buf, -s $fh;
-    close($fh);
-    return thaw($$buf);
+    sysread $fh, $buf, (( sysseek $fh, 0, 2 ), sysseek $fh, 0,0)[0] ;
+    return thaw($buf);
 }
 
 sub lock_retrieve($) {
-    my $file = shift;
-    open my $fh, "<", $file or croak "Can't open file \"$file\" for read.";
-    flock $fh, LOCK_SH;
-    my $buf;
-    read $fh, $$buf, -s $fh;
-    flock $fh, LOCK_UN;
-    close($fh);
-    return thaw($$buf);
+    $_[1] = 1;
+    goto &retrieve;
 }
 
 sub store($$) {
-    my $object = shift;
-    my $file   = shift;
-    open my $fh, "+>", $file or croak "Can't open file \"$file\" for write.";
-    truncate $fh, 0;
+    my ( $object, $file, $lock ) = @_;
 
-    #print $fh freeze($object);
     my $freeze = \freeze($object);
-    croak "Bad object" unless defined $$freeze;
-    print $fh $$freeze if defined $$freeze;
-    close($fh) and defined $$freeze;
+    unless (defined $$freeze ){
+        croak "Bad object";
+    }
+    else  {
+	open my $fh, ">:raw", $file or croak "Can't open file \"$file\" for write.";
+        flock $fh, LOCK_EX if $lock;
+        print $fh $$freeze if defined $$freeze;
+    };
 }
 
 sub lock_store($$) {
-    my $object = shift;
-    my $file   = shift;
-    open my $fh, "+>", $file or croak "Can't open file \"$file\" for write.";
-    flock $fh, LOCK_EX;
-    truncate $fh, 0;
-
-    #print $fh freeze($object);
-    my $freeze = \freeze($object);
-    croak "Bad object" unless defined $$freeze;
-    print $fh $$freeze if defined $$freeze;
-    flock $fh, LOCK_UN;
-    close($fh) and defined $$freeze;
+    $_[2] = 1;
+    goto &store;
 }
-
-sub nstore($$) {
-    my $object = shift;
-    my $file   = shift;
-    open my $fh, "+>", $file or croak "Can't open file \"$file\" for write.";
-    truncate $fh, 0;
-
-    #print $fh freeze($object);
-    my $freeze = \freeze($object);
-    croak "Bad object" unless defined $$freeze;
-    print $fh $$freeze if defined $$freeze;
-    close($fh) and defined $$freeze;
-}
-
-sub lock_nstore($$) {
-    my $object = shift;
-    my $file   = shift;
-    open my $fh, "+>", $file or croak "Can't open file \"$file\" for write.";
-    flock $fh, LOCK_EX;
-    truncate $fh, 0;
-    my $freeze = \freeze($object);
-    if ( defined $$freeze ) {
-        print $fh $$freeze;
-    }
-    else {
-        croak "Storable::AMF: Bad object";
-    }
-    flock $fh, LOCK_UN;
-    close($fh) and defined $$freeze;
-}
+{{
+    no warnings 'once';
+    *nstore = \&store;
+    *lock_nstore = \&lock_store;
+}};
 require XSLoader;
 XSLoader::load( 'Storable::AMF', $VERSION );
 no warnings;

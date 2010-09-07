@@ -4,6 +4,7 @@ Makefile.PL
 MANIFEST
 TODO
 README
+examples/amf0_bench.pl
 t/GrianUtils.pm
 lib/Storable/AMF.pm
 lib/Storable/ppport.h

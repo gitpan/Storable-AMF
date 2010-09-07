@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Fcntl qw(:flock);
 use Storable::AMF0;
-our $VERSION = '0.66';
+our $VERSION = '0.70';
 use vars qw/$OPT/;
 require Exporter;
 our @ISA = qw(Exporter);
@@ -22,9 +22,7 @@ our %EXPORT_TAGS = (
 );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-
 our @EXPORT = qw();
-
 our $OPTS;
 
 no strict 'refs';

@@ -247,3 +247,8 @@ Revision history for Perl extension Storable::AMF.
 0.6400 ( 1904) 2009-08-27 01:10:02 +0400 
         - bug in thaw for empty string
     
+0.6600 ( 1904) 2009-08-27 01:10:02 +0400 
+        - Some fixes ???
+
+0.70   (     ) 2010-09-07 14:02:02 +0400
+	- improve retrive && store for speed ( for win32 specialy )
