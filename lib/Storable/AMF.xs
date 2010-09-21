@@ -1481,6 +1481,7 @@ inline SV * amf3_parse_array(pTHX_ struct io_struct *io){
 struct amf3_trait_struct{
     int sealed;
     bool dynamic;
+    bool externalizable;
     SV* class_name;
     HV* stash;
 };
@@ -1494,6 +1495,7 @@ inline SV * amf3_parse_object(pTHX_ struct io_struct *io){
         AV * trait;
         int sealed;
         bool dynamic;
+	bool externalizable;
         SV * class_name_sv;
         HV *one;
         int i;
@@ -1507,9 +1509,10 @@ inline SV * amf3_parse_object(pTHX_ struct io_struct *io){
 
             sealed  = (int)  SvIV(*av_fetch(trait, 0, 0));
             dynamic = (bool) SvIV(*av_fetch(trait, 1, 0));
+	    externalizable = (bool) SvIV(*av_fetch(trait, 2, 0));
             class_name_sv = *av_fetch(trait, 3, 0);
         }
-        else if ( !(obj_ref & 4)) {	
+        else if ( 1 || !(obj_ref & 4)) {	
             int i;
             if (0){
                 sealed =0;
@@ -1523,11 +1526,12 @@ inline SV * amf3_parse_object(pTHX_ struct io_struct *io){
                 av_push(io->arr_trait, newRV_noinc((SV *) trait));
                 sealed  = obj_ref >>4;
                 dynamic = obj_ref & 8;
+		externalizable = ( obj_ref  & 0x04) != 0;
                 class_name_sv = amf3_parse_string(aTHX_  io);
 
                 av_push(trait, newSViv(sealed));
                 av_push(trait, newSViv(dynamic));
-                av_push(trait, newSViv(0)); // external processing
+                av_push(trait, newSViv( externalizable )); // external processing
                 av_push(trait, class_name_sv);
 
                 for(i =0; i<sealed; ++i){
@@ -1545,6 +1549,10 @@ inline SV * amf3_parse_object(pTHX_ struct io_struct *io){
         one = newHV();
         RETVALUE = newRV_noinc((SV*) one);
         amf3_store_object_rv(aTHX_  io, RETVALUE);
+
+	if ( externalizable ){
+	    (void) hv_store( one, "externalizedData", 16, amf3_parse_one(aTHX_  io), 0);
+	};
 
         for(i=0; i<sealed; ++i){
             (void) hv_store_ent( one, *av_fetch(trait, 4+i, 0), amf3_parse_one(aTHX_  io), 0);	
