@@ -6,8 +6,8 @@ TODO
 README
 examples/amf0_bench.pl
 t/GrianUtils.pm
-lib/Storable/AMF.pm
 lib/Storable/ppport.h
+lib/Storable/AMF.pm
 lib/Storable/AMF0.pm
 lib/Storable/AMF3.pm
 lib/Storable/AMF.xs

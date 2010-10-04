@@ -729,13 +729,13 @@ inline double io_read_double(struct io_struct *io){
     return a;
 }
 inline char *io_read_bytes(struct io_struct *io, int len){
-    unsigned char * pos = io->pos;
+    char * pos = ( char * )io->pos;
     io_require(io, len);
     io->pos+=len;
     return pos;
 }
 inline char *io_read_chars(struct io_struct *io, int len){
-    unsigned char * pos = io->pos;
+    char * pos = ( char * )io->pos;
     io_require(io, len);
     io->pos+=len;
     return pos;
@@ -1160,8 +1160,6 @@ inline SV* parse_xml_document(pTHX_ struct io_struct *io){
     return RETVALUE;
 }
 inline SV *parse_scalar_ref(pTHX_ struct io_struct *io){
-
-        unsigned char *savepos = io->pos;
         SV * obj;
         int obj_pos;
         int len_next;
@@ -1512,40 +1510,27 @@ inline SV * amf3_parse_object(pTHX_ struct io_struct *io){
 	    externalizable = (bool) SvIV(*av_fetch(trait, 2, 0));
             class_name_sv = *av_fetch(trait, 3, 0);
         }
-        else if ( 1 || !(obj_ref & 4)) {	
+        else {	
             int i;
-            if (0){
-                sealed =0;
-                dynamic = 1;
-                class_name_sv = sv_2mortal(newSVpvn("",0));
-                io_set_position(io, 8);
-                sv_2mortal((SV*)(trait =  newAV()));
-            }
-            else{
-                trait = newAV();
-                av_push(io->arr_trait, newRV_noinc((SV *) trait));
-                sealed  = obj_ref >>4;
-                dynamic = obj_ref & 8;
-		externalizable = ( obj_ref  & 0x04) != 0;
-                class_name_sv = amf3_parse_string(aTHX_  io);
+	    trait = newAV();
+	    av_push(io->arr_trait, newRV_noinc((SV *) trait));
+	    sealed  = obj_ref >>4;
+	    dynamic = obj_ref & 8;
+	    externalizable = ( obj_ref  & 0x04) != 0;
+	    class_name_sv = amf3_parse_string(aTHX_  io);
 
-                av_push(trait, newSViv(sealed));
-                av_push(trait, newSViv(dynamic));
-                av_push(trait, newSViv( externalizable )); // external processing
-                av_push(trait, class_name_sv);
+	    av_push(trait, newSViv(sealed));
+	    av_push(trait, newSViv(dynamic));
+	    av_push(trait, newSViv( externalizable )); // external processing
+	    av_push(trait, class_name_sv);
 
-                for(i =0; i<sealed; ++i){
-                    SV * prop_name;
+	    for(i =0; i<sealed; ++i){
+		SV * prop_name;
 
-                    prop_name = amf3_parse_string(aTHX_  io);
-                    av_push(trait, prop_name);
-                }			
-            }
-
-        }
-        else {
-            io_register_error(io, ERR_UNIMPLEMENTED);
-        }
+		prop_name = amf3_parse_string(aTHX_  io);
+		av_push(trait, prop_name);
+	    }			
+        };
         one = newHV();
         RETVALUE = newRV_noinc((SV*) one);
         amf3_store_object_rv(aTHX_  io, RETVALUE);
@@ -2330,13 +2315,7 @@ thaw(data, ...)
 void 
 endian()
     PPCODE:
-    char *x ="dasdf";
     PerlIO_printf(PerlIO_stderr(), "%s %x\n", GAX, BYTEORDER);
-	;
-    //Perl_fprintf(Perl_stderr(), "\n");
-    //fprintf( stderr, "\n");
-    
-    // __BYTE_ORDER, __LITTLE_ENDIAN, __BIG_ENDIAN);
 
 void freeze(data)
     SV * data

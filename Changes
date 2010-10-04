@@ -252,3 +252,9 @@ Revision history for Perl extension Storable::AMF.
 
 0.70   (     ) 2010-09-07 14:02:02 +0400
 	- improve retrive && store for speed ( for win32 specialy )
+
+0.71   (     ) 2010-09-07 14:02:02 +0400
+	- Basic external object parsing 
+
+0.72   (     ) 2010-10-03 23:25:02 +0400
+	- Code cleanup( remove some warnings )
