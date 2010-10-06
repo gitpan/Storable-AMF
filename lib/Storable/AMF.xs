@@ -11,6 +11,15 @@
 #  define PERL_UNUSED_VAR(var) if (0) var = var
 #endif
 
+#ifndef STATIC_INLINE /* a public perl API from 5.13.4 */
+#   if defined(__GNUC__) || defined(__cplusplus__) || (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))
+#       define STATIC_INLINE static inline
+#   else
+#       define STATIC_INLINE static
+#   endif
+#endif /* STATIC_INLINE */
+
+
 #define ERR_EOF 1
 #define ERR_REF 2
 #define ERR_MARKER 3
@@ -683,25 +692,25 @@ inline void format_typed_object(pTHX_ struct io_struct *io,  HV * one){
     format_object(aTHX_  io, one);
 }
 
-inline SV * parse_one(pTHX_ struct io_struct * io);
+STATIC_INLINE SV * parse_one(pTHX_ struct io_struct * io);
 
-inline SV* parse_number(struct io_struct *io);
-inline SV* parse_boolean(pTHX_ struct io_struct *io);
-inline SV* parse_string(struct io_struct *io);
-inline SV* parse_object(pTHX_ struct io_struct *io);
-inline SV* parse_movieclip(pTHX_ struct io_struct *io);
-inline SV* parse_null(pTHX_ struct io_struct *io);
-inline SV* parse_undefined(pTHX_ struct io_struct *io);
-inline SV* parse_reference(pTHX_ struct io_struct *io);
-inline SV* parse_object_end(pTHX_ struct io_struct *io);
-inline SV* parse_strict_array(pTHX_ struct io_struct *io);
-inline SV* parse_ecma_array(pTHX_ struct io_struct *io);
-inline SV* parse_date(pTHX_ struct io_struct *io);
-inline SV* parse_long_string(pTHX_ struct io_struct *io);
-inline SV* parse_unsupported(pTHX_ struct io_struct *io);
-inline SV* parse_recordset(pTHX_ struct io_struct *io);
-inline SV* parse_xml_document(pTHX_ struct io_struct *io);
-inline SV* parse_typed_object(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_number(struct io_struct *io);
+STATIC_INLINE SV* parse_boolean(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_string(struct io_struct *io);
+STATIC_INLINE SV* parse_object(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_movieclip(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_null(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_undefined(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_reference(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_object_end(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_strict_array(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_ecma_array(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_date(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_long_string(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_unsupported(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_recordset(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_xml_document(pTHX_ struct io_struct *io);
+STATIC_INLINE SV* parse_typed_object(pTHX_ struct io_struct *io);
 
 inline void io_write_double(pTHX_ struct io_struct *io, double value);
 inline void io_write_marker(pTHX_ struct io_struct * io, char value);
@@ -895,7 +904,7 @@ inline int amf3_read_integer(struct io_struct *io){
     }
     return value;
 }
-inline SV * parse_utf8(pTHX_ struct io_struct * io){
+STATIC_INLINE SV * parse_utf8(pTHX_ struct io_struct * io){
     int string_len = io_read_u16(io);
     SV * RETVALUE;
     char *x = io_read_chars(io, string_len);
@@ -906,7 +915,7 @@ inline SV * parse_utf8(pTHX_ struct io_struct * io){
     return RETVALUE;
 }
 
-inline SV * parse_object(pTHX_ struct io_struct * io){
+STATIC_INLINE SV * parse_object(pTHX_ struct io_struct * io){
     HV * obj;
     int len_next;
     char * key;
@@ -950,25 +959,25 @@ inline SV * parse_object(pTHX_ struct io_struct * io){
     }
 }
 
-inline SV* parse_movieclip(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_movieclip(pTHX_ struct io_struct *io){
     SV* RETVALUE;
     io->message = "Movie clip unsupported yet";
     RETVALUE = newSV(0);
     return RETVALUE;
 }
-inline SV* parse_null(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_null(pTHX_ struct io_struct *io){
     SV* RETVALUE;
     RETVALUE = newSV(0);
     return RETVALUE;
 }
 
-inline SV* parse_undefined(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_undefined(pTHX_ struct io_struct *io){
     SV* RETVALUE;
     RETVALUE = newSV(0);
     return RETVALUE;
 }
 
-inline SV* parse_reference(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_reference(pTHX_ struct io_struct *io){
     SV* RETVALUE;
     int object_offset;
     AV * ar_refs;
@@ -984,12 +993,12 @@ inline SV* parse_reference(pTHX_ struct io_struct *io){
     return RETVALUE;
 }
 
-inline SV* parse_object_end(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_object_end(pTHX_ struct io_struct *io){
     io_read_marker(io);
     return 0;
 }
 
-inline SV* parse_strict_array(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_strict_array(pTHX_ struct io_struct *io){
     SV* RETVALUE;
     int array_len;
     AV* this_array;
@@ -1012,7 +1021,7 @@ inline SV* parse_strict_array(pTHX_ struct io_struct *io){
     return RETVALUE;
 }
 
-inline SV* parse_ecma_array(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_ecma_array(pTHX_ struct io_struct *io){
     SV* RETVALUE;
 
     U32 array_len;
@@ -1123,7 +1132,7 @@ inline SV* parse_ecma_array(pTHX_ struct io_struct *io){
     return RETVALUE;
 }
 
-inline SV* parse_date(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_date(pTHX_ struct io_struct *io){
     SV* RETVALUE;
     double time;
     int tz;
@@ -1135,7 +1144,7 @@ inline SV* parse_date(pTHX_ struct io_struct *io){
     return RETVALUE;
 }
 
-inline SV* parse_long_string(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_long_string(pTHX_ struct io_struct *io){
     SV* RETVALUE;
     STRLEN len;
     len = io_read_u32(io);
@@ -1146,13 +1155,13 @@ inline SV* parse_long_string(pTHX_ struct io_struct *io){
     return RETVALUE;
 }
 
-inline SV* parse_unsupported(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_unsupported(pTHX_ struct io_struct *io){
     io_register_error(io, ERR_UNIMPLEMENTED);
 }
-inline SV* parse_recordset(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_recordset(pTHX_ struct io_struct *io){
     io_register_error(io, ERR_UNIMPLEMENTED);
 }
-inline SV* parse_xml_document(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_xml_document(pTHX_ struct io_struct *io){
     SV* RETVALUE;
     RETVALUE = parse_long_string(aTHX_  io);
     SvREFCNT_inc_simple_void_NN(RETVALUE);
@@ -1212,7 +1221,7 @@ inline SV *parse_scalar_ref(pTHX_ struct io_struct *io){
             }
     }
 }
-inline SV* parse_typed_object(pTHX_ struct io_struct *io){
+STATIC_INLINE SV* parse_typed_object(pTHX_ struct io_struct *io){
     SV* RETVALUE;
     HV *stash;
     int len;
@@ -1237,45 +1246,44 @@ inline SV* parse_typed_object(pTHX_ struct io_struct *io){
     sv_bless(RETVALUE, stash);
     return RETVALUE;
 }
-inline SV* parse_double(pTHX_ struct io_struct * io){
+STATIC_INLINE SV* parse_double(pTHX_ struct io_struct * io){
     return newSVnv(io_read_double(io));
 }
 
-inline SV* parse_boolean(pTHX_ struct io_struct * io){
+STATIC_INLINE SV* parse_boolean(pTHX_ struct io_struct * io){
     char marker;
     marker = io_read_marker(io);
     return newSViv(marker == '\000' ? 0 :1);
 }
 
 inline SV * amf3_parse_one(pTHX_ struct io_struct *io);
-SV *amf3_parse_undefined(pTHX_ struct io_struct *io);
-inline SV * amf3_parse_undefined(pTHX_ struct io_struct *io){
+STATIC_INLINE SV * amf3_parse_undefined(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSV(0);
     return RETVALUE;
 }
-inline SV * amf3_parse_null(pTHX_ struct io_struct *io){
+STATIC_INLINE SV * amf3_parse_null(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSV(0);
     return RETVALUE;
 }
-inline SV * amf3_parse_false(pTHX_ struct io_struct *io){
+STATIC_INLINE SV * amf3_parse_false(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSViv(0);
     return RETVALUE;
 }
 
-inline SV * amf3_parse_true(pTHX_ struct io_struct *io){
+STATIC_INLINE SV * amf3_parse_true(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSViv(1);
     return RETVALUE;
 }
-inline SV * amf3_parse_integer(pTHX_ struct io_struct *io){
+STATIC_INLINE SV * amf3_parse_integer(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSViv(amf3_read_integer(io));
     return RETVALUE;
 }
-inline SV * amf3_parse_double(pTHX_ struct io_struct *io){
+STATIC_INLINE SV * amf3_parse_double(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = newSVnv(io_read_double(io));
     return RETVALUE;
@@ -1309,7 +1317,7 @@ inline char * amf3_read_string(pTHX_ struct io_struct *io, int ref_len, STRLEN *
         }
     }
 }
-inline SV * amf3_parse_string(pTHX_ struct io_struct *io){
+STATIC_INLINE SV * amf3_parse_string(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     int ref_len;
     STRLEN plen;
@@ -1322,7 +1330,7 @@ inline SV * amf3_parse_string(pTHX_ struct io_struct *io){
     return RETVALUE;
 }
 inline SV * amf3_parse_xml(pTHX_ struct io_struct *io);
-inline SV * amf3_parse_xml_doc(pTHX_ struct io_struct *io){
+STATIC_INLINE SV * amf3_parse_xml_doc(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = amf3_parse_xml(aTHX_  io);
     return RETVALUE;
@@ -1590,7 +1598,7 @@ inline SV * amf3_parse_object(pTHX_ struct io_struct *io){
     }
     return RETVALUE;
 }
-inline SV * amf3_parse_xml(pTHX_ struct io_struct *io){
+STATIC_INLINE SV * amf3_parse_xml(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     int Bi = amf3_read_integer(io);
     if (Bi & 1) { // value
@@ -1613,7 +1621,7 @@ inline SV * amf3_parse_xml(pTHX_ struct io_struct *io){
     }
     return RETVALUE;
 }
-inline SV * amf3_parse_bytearray(pTHX_ struct io_struct *io){
+STATIC_INLINE SV * amf3_parse_bytearray(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     int Bi = amf3_read_integer(io);
     if (Bi & 1) { // value

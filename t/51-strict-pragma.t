@@ -2,7 +2,7 @@ use lib 't';
 use ExtUtils::testlib;
 use strict;
 use warnings;
-use Storable::AMF qw(freeze thaw);
+use Storable::AMF0 qw(freeze thaw);
 use Data::Dumper;
 use Test::More tests=>8;
 

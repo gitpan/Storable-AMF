@@ -1,7 +1,7 @@
 --- #YAML:1.0
 name:               Storable-AMF
-version:            0.72
-abstract:           Perl extension for serialize/deserialize AMF0/AMF3 data
+version:            0.73
+abstract:           serializing/deserializing AMF0/AMF3 data
 author:
     - Grishaev Anatoliy  <grian@cpan.org>
 license:            perl

@@ -14,13 +14,6 @@ my $a = eval {
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
-#my $ENDIAN =  unpack('S', pack('C2', 0, 1)) == 1 ? 'BIG' : 'LITTLE';
-#my $DEFINE = "-D${ENDIAN}_END";
-#my $DEFINE = "-D${ENDIAN}_END  -D_REENTRANT -D_GNU_SOURCE";
-if ( $Config{osname} eq 'MSWin32' ) {
-
-#            system "perl", qw( -ibak -p -e), 's/^\s*inline\s*//', "lib/Storable/AMF.xs";
-}
 exit if ( @ARGV && $ARGV[0] eq '--stop' );
 
 use File::Copy;
@@ -58,8 +51,7 @@ our %MyModule = (
         $] >= 5.005
         ?    ## Add these new keywords supported since 5.005
           (
-            ABSTRACT_FROM =>
-              'lib/Storable/AMF.pm',    # retrieve abstract from module
+            ABSTRACT => 'serializing/deserializing AMF0/AMF3 data',
             AUTHOR => 'Grishaev Anatoliy  <grian@cpan.org>'
           )
         : ()

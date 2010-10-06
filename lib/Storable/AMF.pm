@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Fcntl qw(:flock);
 use Storable::AMF0;
-our $VERSION = '0.72';
+our $VERSION = '0.73';
 use vars qw/$OPT/;
 require Exporter;
 our @ISA = qw(Exporter);
@@ -35,7 +35,7 @@ __END__
 
 =head1 NAME
 
-Storable::AMF - Perl extension for serialize/deserialize AMF0/AMF3 data
+Storable::AMF - serializing/deserializing AMF0/AMF3 data
 
 =head1 SYNOPSIS
 
@@ -180,7 +180,7 @@ Anatoliy Grishaev, <grian at cpan dot org>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2008 by A. G. Grishaev
+Copyright (C) 2010 by A. G. Grishaev
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.8 or,

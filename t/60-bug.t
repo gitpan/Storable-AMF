@@ -21,7 +21,7 @@ use Test::More 'no_plan';                      # last test to print
 use Data::Dumper;
 use Scalar::Util qw(reftype blessed weaken);
 use ExtUtils::testlib;
-use Storable::AMF qw(freeze thaw);
+use Storable::AMF0 qw(freeze thaw);
 my $s = freeze( '' );
 use Data::Dumper;
 $Data::Dumper::Useqq = 1;
