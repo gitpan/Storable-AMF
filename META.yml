@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Storable-AMF
-version:            0.74
+version:            0.75
 abstract:           serializing/deserializing AMF0/AMF3 data
 author:
     - Grishaev Anatoliy  <grian@cpan.org>
@@ -11,9 +11,11 @@ configure_requires:
 build_requires:
     ExtUtils::MakeMaker:  0
 requires:
+    Cwd:                  0
+    File::Copy:           0
     Module::Build:        0.2
     Module::Build::Compat:  0.02
-    perl:                 5.008
+    perl:                 5.008001
 no_index:
     directory:
         - t

@@ -266,3 +266,6 @@ Revision history for Perl extension Storable::AMF.
 
 0.74	        2010-10-06 16:33 +0400
 	- Typos in Some compilers fix ( STATIC_INLINE ) don't like inline 
+
+0.75	        2010-10-06 16:33 +0400
+	- Makefile rewrite add warnings -Wunused -Wuninitialized  

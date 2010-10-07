@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Fcntl qw(:flock);
 use Storable::AMF0;
-our $VERSION = '0.74';
+our $VERSION = '0.75';
 use vars qw/$OPT/;
 require Exporter;
 our @ISA = qw(Exporter);

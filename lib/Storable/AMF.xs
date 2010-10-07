@@ -694,9 +694,7 @@ inline void format_typed_object(pTHX_ struct io_struct *io,  HV * one){
 
 STATIC_INLINE SV * parse_one(pTHX_ struct io_struct * io);
 
-STATIC_INLINE SV* parse_number(struct io_struct *io);
 STATIC_INLINE SV* parse_boolean(pTHX_ struct io_struct *io);
-STATIC_INLINE SV* parse_string(struct io_struct *io);
 STATIC_INLINE SV* parse_object(pTHX_ struct io_struct *io);
 STATIC_INLINE SV* parse_movieclip(pTHX_ struct io_struct *io);
 STATIC_INLINE SV* parse_null(pTHX_ struct io_struct *io);
