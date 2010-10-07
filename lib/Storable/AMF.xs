@@ -1329,7 +1329,7 @@ STATIC_INLINE SV * amf3_parse_string(pTHX_ struct io_struct *io){
     SvUTF8_on(RETVALUE);
     return RETVALUE;
 }
-inline SV * amf3_parse_xml(pTHX_ struct io_struct *io);
+STATIC_INLINE SV * amf3_parse_xml(pTHX_ struct io_struct *io);
 STATIC_INLINE SV * amf3_parse_xml_doc(pTHX_ struct io_struct *io){
     SV * RETVALUE;
     RETVALUE = amf3_parse_xml(aTHX_  io);
@@ -1893,7 +1893,7 @@ inline SV * amf3_parse_one(pTHX_ struct io_struct * io){
         io_register_error(io, ERR_MARKER);
     }
 }
-inline SV * parse_one(pTHX_ struct io_struct * io){
+STATIC_INLINE SV * parse_one(pTHX_ struct io_struct * io){
     unsigned char marker;
     marker = (unsigned char) io_read_marker(io);
     if ( marker < ARRAY_SIZE( parse_subs )){
