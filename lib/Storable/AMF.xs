@@ -20,6 +20,26 @@
 #endif /* STATIC_INLINE */
 
 
+
+#ifndef inline /* don't like borgs definitions */ /* inline is keyword for STDC compiler  */
+#   if defined(__GNUC__) || defined(__cplusplus__) || (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))
+#   else
+#	if defined(WIN32) && defined(_MSV) /* Microsoft Compiler */
+#	    define inline _inline
+#	else 
+#	    define inline 
+#	endif
+#   endif
+#endif /* inline  */
+
+// Blin Strawberry perl for Win32 for setjmp macros 
+#ifdef WIN32
+#undef setjmp
+#undef longjmp
+#define setjmp _setjmp
+#endif
+
+
 #define ERR_EOF 1
 #define ERR_REF 2
 #define ERR_MARKER 3
@@ -82,27 +102,6 @@
 #undef TRACE
 #define TRACE(ELEM) ;
 
-// #if LITTLE_ENDIAN 
-// #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
-// #define GAX "LIT"
-// #else 
-// #define GET_NBYTE(ALL, IPOS, TYPE) (sizeof(TYPE) -ALL + IPOS)
-// #define GAX "BIG"
-// #endif
-// #if BYTE_ORDER == LITTLE_ENDIAN
-//     #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
-//     #define GAX "LIT"
-// #elif BYTE_ORDER == BIG_ENDIAN
-//     #define GET_NBYTE(ALL, IPOS, TYPE) (sizeof(TYPE) -ALL + IPOS)
-//     #define GAX "BIG"
-// #elif WIN32
-//     #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
-//     #define GAX "LIT"
-// #else 
-//     #error Can't figure out byteorder 
-// #endif 
-// 
-
 #if BYTEORDER == 0x1234
     #define GAX "LIT"
     #define GET_NBYTE(ALL, IPOS, TYPE) (ALL - 1 - IPOS)
@@ -126,15 +125,6 @@
 #endif
 
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
-
-
-// Blin Strawberry perl for Win32
-#ifdef WIN32
-#define inline _inline
-#undef setjmp
-#undef longjmp
-#define setjmp _setjmp
-#endif
 
 
 //#define TRACE0
@@ -668,7 +658,7 @@ inline void format_object(pTHX_ struct io_struct *io, HV * one){
     hv = one;
     if (1) {
         hv_iterinit(hv);
-        while(he =  hv_iternext(hv)){
+        while( (he =  hv_iternext(hv))){
             key_str = HePV(he, key_len);
             value   = HeVAL(he);
             io_write_u16(aTHX_  io, key_len);
@@ -1155,9 +1145,11 @@ STATIC_INLINE SV* parse_long_string(pTHX_ struct io_struct *io){
 
 STATIC_INLINE SV* parse_unsupported(pTHX_ struct io_struct *io){
     io_register_error(io, ERR_UNIMPLEMENTED);
+    return 0;
 }
 STATIC_INLINE SV* parse_recordset(pTHX_ struct io_struct *io){
     io_register_error(io, ERR_UNIMPLEMENTED);
+    return 0;
 }
 STATIC_INLINE SV* parse_xml_document(pTHX_ struct io_struct *io){
     SV* RETVALUE;
@@ -1312,6 +1304,7 @@ inline char * amf3_read_string(pTHX_ struct io_struct *io, int ref_len, STRLEN *
         else {
             // Exception: May be there throw some
             io_register_error(io, ERR_BADREF);
+	    return 0; // Never reach this lime
         }
     }
 }
@@ -1779,7 +1772,7 @@ inline void amf3_format_object(pTHX_ struct io_struct *io, SV * rone){
         hv = one;
 
         hv_iterinit(hv);
-        while(value  = hv_iternextsv(hv, &key_str, &key_len)){
+        while( (value  = hv_iternextsv(hv, &key_str, &key_len)) ){
             if (key_len){
                 amf3_write_string_pvn(aTHX_  io, key_str, key_len);
                 amf3_format_one(aTHX_  io, value);
@@ -1889,6 +1882,7 @@ inline SV * amf3_parse_one(pTHX_ struct io_struct * io){
     }
     else {
         io_register_error(io, ERR_MARKER);
+	return 0; // Never reach this statement
     }
 }
 STATIC_INLINE SV * parse_one(pTHX_ struct io_struct * io){
@@ -1898,7 +1892,7 @@ STATIC_INLINE SV * parse_one(pTHX_ struct io_struct * io){
         return (parse_subs[marker])(aTHX_ io);
     }
     else {
-        io_register_error(io, ERR_MARKER);
+        return io_register_error(io, ERR_MARKER),(SV *)0;
     }
 }
 inline SV * deep_clone(pTHX_ SV * value);
@@ -1921,7 +1915,7 @@ inline HV * deep_hash(pTHX_ HV* value){
     SV*	copy_val;
 
     hv_iterinit(value);
-    while(key_value  = hv_iternextsv(value, &key_str, &key_len)){
+    while((key_value  = hv_iternextsv(value, &key_str, &key_len)) ){
         copy_val = deep_clone(aTHX_  key_value);
         (void) hv_store(copy, key_str, key_len, copy_val, 0);
     }
@@ -1994,7 +1988,7 @@ inline void ref_clear(pTHX_ HV * go_once, SV *sv){
         SV*  item;
 
         hv_iterinit(ref_hash);
-        while(item = hv_iternextsv(ref_hash, &key, &key_len)){
+        while( (item = hv_iternextsv(ref_hash, &key, &key_len)) ){
             ref_clear(aTHX_  go_once, item);
         };
         hv_clear(ref_hash);
@@ -2048,7 +2042,7 @@ thaw(data, ...)
             io_self = newRV_noinc((SV*)newAV());
             io_in_init(aTHX_  &io_record, io_self, data, AMF0);
             sv_2mortal(io_self);
-            if (error_code = setjmp(io_record.target_error)){
+            if ((error_code = setjmp(io_record.target_error)) ){
                 //croak("Failed parse string. unspected EOF");
                 //TODO: ERROR CODE HANDLE
                 if (io_record.options & OPT_ERROR_RAISE){

@@ -52,10 +52,13 @@ delete $MyModule{OPTIMIZE}
   if ( $Config{osname} =~ /solaris/
     or $Config{cc} eq 'cl' );
 if ( $Config{cc} eq 'gcc' ||  $Config{gccversion}) {
-    $MyModule{CCFLAGS} = '-Wunused -Wuninitialized';    # --warn-no-unused-parameter';
+    for (   $MyModule{CCFLAGS} ){
+ 	$_= '-Wunused -Wuninitialized -Wall'; 
+	#$_  .= ' -Wunreachable-code';
+	#$_  .= ' -Wunsafe-loop-optimizations';
+    };
       #$MyModule{CCFLAGS} = '-Wunused-variable -Wunused-label -Wunused-function -Wuninitialized -Wunused-value'
 
-    #    -Wunreachable-code -Wunsafe-loop-optimizations';
 }
 
 WriteMakefile(%MyModule);
