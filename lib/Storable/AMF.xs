@@ -5,7 +5,7 @@
 #include "XSUB.h"
 
 #include "ppport.h"
-#include "setjmp.h"
+
 
 #ifndef PERL_UNUSED_VAR
 #  define PERL_UNUSED_VAR(var) if (0) var = var
@@ -33,11 +33,11 @@
 #endif /* inline  */
 
 // Blin Strawberry perl for Win32 for setjmp macros 
-#ifdef WIN32
-#undef setjmp
-#undef longjmp
-#define setjmp _setjmp
-#endif
+// #ifdef WIN32
+// #undef setjmp
+// #undef longjmp
+// #define setjmp _setjmp
+// #endif
 
 
 #define ERR_EOF 1
@@ -149,7 +149,8 @@ struct io_struct{
     int buffer_step_inc;
     char status;
     char * old_pos;
-    jmp_buf target_error;
+//    jmp_buf target_error;
+    Sigjmp_buf target_error;
     AV *arr_string;
     AV *arr_object;
     AV *arr_trait;
@@ -231,13 +232,13 @@ io_reserve(pTHX_ struct io_struct *io, int len){
     }
 }
 inline void io_register_error(struct io_struct *io, int errtype){
-    longjmp(io->target_error, errtype);
+    Siglongjmp(io->target_error, errtype);
 }
 
 inline void io_register_error_and_free(pTHX_ struct io_struct *io, int errtype, void *pointer){
     if (pointer)
         sv_2mortal((SV*) pointer);
-    longjmp(io->target_error, errtype);
+    Siglongjmp(io->target_error, errtype);
 }
 inline void io_in_init(pTHX_ struct io_struct * io, SV *io_self, SV* data, int amf3){
     //    PerlInterpreter *my_perl = io->interpreter;
@@ -2042,7 +2043,7 @@ thaw(data, ...)
             io_self = newRV_noinc((SV*)newAV());
             io_in_init(aTHX_  &io_record, io_self, data, AMF0);
             sv_2mortal(io_self);
-            if ((error_code = setjmp(io_record.target_error)) ){
+            if ((error_code = Sigsetjmp(io_record.target_error, 0)) ){
                 //croak("Failed parse string. unspected EOF");
                 //TODO: ERROR CODE HANDLE
                 if (io_record.options & OPT_ERROR_RAISE){
@@ -2114,7 +2115,7 @@ deparse_amf(data, ...)
             io_self = newRV_noinc((SV*)newAV());
             io_in_init(aTHX_  &io_record, io_self, data, AMF0);
             sv_2mortal(io_self);
-            if ( !(error_code = setjmp(io_record.target_error))){
+            if ( !(error_code = Sigsetjmp(io_record.target_error, 0))){
                 
                 retvalue = (SV*) (parse_one(aTHX_  &io_record));
                 retvalue = sv_2mortal(retvalue);
@@ -2161,7 +2162,7 @@ void freeze(data)
         io_self= newSV(0);
         sv_2mortal(io_self);
         io_out_init(aTHX_  &io_record, 0, AMF0);
-        if (!(error_code = setjmp(io_record.target_error))){
+        if (!(error_code = Sigsetjmp(io_record.target_error, 0))){
             format_one(aTHX_  &io_record, data);
             retvalue = sv_2mortal(io_buffer(&io_record));
             XPUSHs(retvalue);
@@ -2210,7 +2211,7 @@ deparse_amf(data, ...)
             io_self = newRV_noinc((SV*)newAV());
             io_in_init(aTHX_  &io_record, io_self, data, AMF3);
             sv_2mortal(io_self);
-            if ( ! (error_code = setjmp(io_record.target_error))){
+            if ( ! (error_code = Sigsetjmp(io_record.target_error, 0))){
                 retvalue = (SV*) (amf3_parse_one(aTHX_  &io_record));
                 sv_2mortal(retvalue);
                 sv_setsv(ERRSV, &PL_sv_undef);
@@ -2275,7 +2276,7 @@ thaw(data, ...)
             io_self = newRV_noinc((SV*)newAV());
             io_in_init(aTHX_  &io_record, io_self, data, AMF3);
             sv_2mortal(io_self);
-            if ( ! (error_code = setjmp(io_record.target_error))){
+            if ( ! (error_code = Sigsetjmp(io_record.target_error, 0))){
                 retvalue = (SV*) (amf3_parse_one(aTHX_  &io_record));
                 sv_2mortal(retvalue);
                 if (io_record.pos!=io_record.end){
@@ -2328,7 +2329,7 @@ void freeze(data)
     PPCODE:
         io_self= newSV(0);
         io_out_init(aTHX_  &io_record, 0, AMF3);
-        if (!(error_code = setjmp(io_record.target_error))){
+        if (!(error_code = Sigsetjmp(io_record.target_error, 0))){
             amf3_format_one(aTHX_  &io_record, data);
             sv_2mortal(io_self);
             retvalue = sv_2mortal(io_buffer(&io_record));
