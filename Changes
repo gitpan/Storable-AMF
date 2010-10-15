@@ -275,3 +275,6 @@ Revision history for Perl extension Storable::AMF.
 
 0.77	        2010-10-12 11:31 +0400
 	- Next try compile for Strawberry Perl (replace jmp_buf, setjmp, longjmp for Sigjmp_buf, Sigsetjmp, Siglongjmp)  
+
+0.78	        2010-10-15 11:31 +0400
+	-  Strawberry Perl (PERL_IMPLICIT_SYS make not compile Sigsetjmp)   # undefine

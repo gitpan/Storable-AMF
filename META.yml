@@ -1,26 +1,35 @@
---- #YAML:1.0
-name:               Storable-AMF
-version:            0.77
-abstract:           serializing/deserializing AMF0/AMF3 data
-author:
-    - Grishaev Anatoliy  <grian@cpan.org>
-license:            perl
-distribution_type:  module
-configure_requires:
-    ExtUtils::MakeMaker:  0
+---
+abstract: 'serializing/deserializing AMF0/AMF3 data'
+author: []
 build_requires:
-    ExtUtils::MakeMaker:  0
-requires:
-    Cwd:                  0
-    File::Copy:           0
-    Module::Build:        0.2
-    Module::Build::Compat:  0.02
-    perl:                 5.008001
-no_index:
-    directory:
-        - t
-        - inc
-generated_by:       ExtUtils::MakeMaker version 6.56
+  ExtUtils::CBuilder: 0.15
+  ExtUtils::ParseXS: 0
+  File::Spec: 0
+  FindBin: 0
+  Module::Build: 0.21
+  Test::More: 0
+configure_requires:
+  Module::Build: 0.36
+dynamic_config: 0
+generated_by: 'Module::Build version 0.3607'
+license: perl
 meta-spec:
-    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
-    version:  1.4
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Storable-AMF
+provides:
+  Storable::AMF:
+    file: lib/Storable/AMF.pm
+    version: 0.78
+  Storable::AMF0:
+    file: lib/Storable/AMF0.pm
+    version: 0.78
+  Storable::AMF3:
+    file: lib/Storable/AMF3.pm
+    version: 0.78
+requires:
+  XSLoader: 0
+  perl: v5.8.0
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.78

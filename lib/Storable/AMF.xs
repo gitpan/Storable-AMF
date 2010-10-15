@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_DEPRECATE
 #define PERL_NO_GET_CONTEXT
+#undef  PERL_IMPLICIT_SYS // Sigsetjmp will not work under this
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
