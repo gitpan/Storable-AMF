@@ -1,34 +1,21 @@
 package Storable::AMF;
 use strict;
 use warnings;
-use Fcntl qw(:flock);
-use Storable::AMF0;
-our $VERSION = '0.79';
-use vars qw/$OPT/;
-require Exporter;
-our @ISA = qw(Exporter);
-
-# Items to export into callers namespace by default. Note: do not export
-# names by default without a very good reason. Use EXPORT_OK instead.
-# Do not simply export all your public functions/methods/constants.
+use Storable::AMF0; # install and create all methods
+use Exporter 'import';
 
 our %EXPORT_TAGS = (
     'all' => [
         qw(
           freeze thaw	dclone retrieve lock_retrieve lock_store lock_nstore store nstore ref_lost_memory ref_clear
-          deparse_amf new_date perl_date
+          deparse_amf new_amfdate perl_date
+		  new_date
           )
     ]
 );
 
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw();
-our $OPTS;
-
-no strict 'refs';
-*{"Storable::AMF::$_"} = *{"Storable::AMF0::$_"} for @{ $EXPORT_TAGS{'all'} };
-
-package Storable::AMF0;
 
 1;
 __END__
@@ -39,81 +26,128 @@ Storable::AMF - serializing/deserializing AMF0/AMF3 data
 
 =head1 SYNOPSIS
 
-  use Storable::AMF0 qw(freeze thaw); # or use Storable::AMF3 qw(freeze thaw)l for AMF3 format
+  use Storable::AMF0 qw(freeze thaw); # Handle AMF0 data
+  use Storable::AMF3 qw(freeze thaw); # Handle AMF3 data
 
   $amf0 = freeze($perl_object);
+  if ($@){
+	  die "Can't freeze perl_object"
+  };
+
   $perl_object = thaw($amf0);
+  if ($@){
+	  die "It seems data is not valid AMF0 data";
+  }
+
+  # Deparse one object and getting its length
+  use Storable::AMF0 qw(deparse_amf); 
+
+  # reading stream of objects
+  my $bytea = freeze($a1) . freeze($a2) . ...; # objects data stream
+  my @objects;
+  while( length $bytea ){
+	my( $obj, $length_of_packet ) = deparse_amf( my $bytea = freeze($a1) . freeze($a) ... );
+	if ( $@ ){
+		# We meet trouble with deparse
+		die "This is not amf0 data";
+	}
+	# have read one object and gets it's length
+	# So put it in array and continue
+	push @objects, $obj;
+	# remove readed part of object bytearray
+	substr $bytea, 0, $length_of_packet, '';
+  }
+
 
 	
-  # Store/retrieve to disk amf0 data
+  # Dumping/Undumping amf0 objects to/from file
 	
   store $perl_object, 'file';
   $restored_perl_object = retrieve 'file';
+	
+  # Same with locking
 
-
-  use Storable::AMF0 qw(nstore freeze thaw dclone);
-
-  # Network order: Due to spec of AMF0 format objects (hash, arrayref) stored in network order.
-  # and thus nstore and store are synonyms 
-
-  nstore \%table, 'file';
-  $hashref = retrieve('file'); 
-
-  
-  # Advisory locking
-  use Storable::AMF0 qw(lock_store lock_nstore lock_retrieve)
   lock_store \%table, 'file';
-  lock_nstore \%table, 'file';
   $hashref = lock_retrieve('file');
-  
-  # Deparse one object
-  use Storable::AMF0 qw(deparse_amf); 
 
-  my( $obj, $length_of_packet ) = deparse_amf( my $bytea = freeze($a1) . freeze($a) ... );
+  # Dates serializing/deserializing 
 
-  - or -
-  $obj = deparse_amf( freeze($a1) . freeze($a) ... );
+  use Storable::AMF0 qw(new_amfdate perl_date);
+  my $timestamp = time(); # UTC time --- seconds from epoch
+
+  # new_amfdate( $time ) 
+  my $object = { now => new_amfdate( $timestamp ), name => "Object with DateTime" };
+  my $bytea  = freeze ( $object );
+
+  # getting perl timestamp from thawed flash object;
+
+  my $object = thaw $bytes;
+
+  my $time   = perl_date( $object->{field_with_date} );  
+
+  - or use simple by your own risk
+
+  my $time   = $object->{field_with_date} ; # 
+
+  # return $time may be seconds from epoch, or milliseconds from epoch, or some kind of object .
+  # Result are not defined at this time it depends of module version
 
 
+  # Working with AMF0 and AMF3 format simultaneously
+  use Storable::AMF0 ();
+  use Storable::AMF3 ();
+
+  $bytea = Storable::AMF0::freeze( ... );
+  $bytea = Storable::AMF3::freeze( ... );
+
+  ...
 =cut
 
 =head1 DESCRIPTION
 
 This module is (de)serializer for Adobe's AMF0/AMF3 (Action Message Format ver 0-3).
-This is only module and it recognize only AMF data. 
-Almost all function implemented in C for speed. 
-And some cases faster then Storable( for me always)
+To deserialize AMF3 objects you can export function from Storable::AMF3 package
+Almost all function implemented in XS/C for speed, except file operation. 
 
 =cut
-
-=head1 EXPORT
-  
-  None by default.
-
-=cut
-
 =head1 MOTIVATION
 
-There are several modules for work with AMF data and packets written in perl, but them are lack a speed.
-This module writen in C for speed. Also this package allow freeze and thaw AMF3 data which is nobody do.
+Speed, simplicity and agile. 
 
 =cut
-=head1 ERROR REPORTING
-    In case of errors functions freeze and thaw returns undef and set $@ error description. 
-    (Error description at the moment is criptic, forgive me..)
+=head1 BENCHMARKS
+
+	About 50-60 times faster than Data::AMF pure perl module. (2009)
+	About 40% faster than Storable in big objects.        (2009)
+	About 6 times faster than Storable for small object    (2009)
 
 =cut
+
 =head1 FUNCTIONS
 =cut
 
 =over
 
-=item freeze($obj) 
-  --- Serialize perl object($obj) to AMF, and return AMF data
+=item freeze($obj, [ $option]  ) 
+  --- Serialize perl object($obj) to AMF, and return AMF data if successfull. 
+      Set $@ in case of error and return undef of empty list.
 
-=item thaw($amf0)
-  --- Deserialize AMF data to perl object, and return the perl object
+=item thaw($amf0, [$option] )
+  --- Deserialize AMF data to perl object, and return the perl object if successfull.
+      Set $@ in case of error and return undef of empty list.
 
+=item deparse_amf $bytea 
+  --- deparse from bytea one item
+  Return object and number of bytes readed if successull.
+  Set $@ in case of error and return undef or empty list.
+  in scalar context works as thaw
+
+=item $date_object = new_amfdate( $perl_timestamp)
+	Return object representing date in AMF world.
+
+=item $perl_time = perl_date( $date_member )
+	Converts value from AMF date to perl timestampr, can croak.
+	
 =item store $obj, $file
   --- Store serialized AMF0 data to file
 
@@ -132,11 +166,6 @@ This module writen in C for speed. Also this package allow freeze and thaw AMF3 
 =item lock_retrieve $file
   --- Same as retrieve but with advisory locking
 
-=item deparse_amf $bytea 
-  --- deparse from bytea one item
-  Return one object and number of bytes readed
-  if scalar context return object
-
 =item dclone $file
   --- Deep cloning data structure
 
@@ -149,11 +178,12 @@ This module writen in C for speed. Also this package allow freeze and thaw AMF3 
 
 =back
 
-=head1 NOTICE
-
-  Storable::AMF is currently is at development stage. 
+=head1 EXPORT
+  
+  None by default.
 
 =cut
+
 
 =head1 LIMITATION
 
@@ -161,13 +191,6 @@ At current moment and with restriction of AMF0/AMF3 format referrences to scalar
 and can't/ may not serialize tied variables.
 And dualvars (See Scalar::Util) are serialized as string value.
 Freezing CODEREF, IO, Regexp, REF, GLOB, SCALAR referenses restricted.
-
-=head1 TODO
-
-Add some options to functions.
-
-Document freezing and thawing XMLDocument, XML, Date
-May be add some IO and packet manipulated function (SEE AMF0/AMF3 at Adobe)
 
 
 =head1 SEE ALSO
