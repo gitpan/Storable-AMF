@@ -28,7 +28,6 @@ t/21-amf-strings.t
 t/22-array.t
 t/23-array-flash0.t
 t/24-anon-object.t
-t/25-typed-object.t
 t/30-can-AMF0.t
 t/31-can-AMF0.t
 t/32-can-AMF3.t
@@ -50,6 +49,7 @@ t/58-deparse-amf3.t
 t/60-bug.t
 t/61-amf-date.t
 t/62-basic-ext.t
+t/63-parse-option.t
 t/AMF0/01-array-foo-bar-x2.pack
 t/AMF0/01-boolean-false.pack
 t/AMF0/01-boolean-true.pack
