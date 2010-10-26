@@ -177,6 +177,7 @@ sub rel2abs{
 
 sub _all_refs_addr{
     my $c = shift;
+	return grep defined, map refaddr($_), @_;
     while(@_){
         my $item = shift;
         
@@ -203,7 +204,7 @@ sub _all_refs_addr{
 }
 sub ref_mem_safe{
     my $sub = shift;
-    my $count_to_execute = shift ||200;
+    my $count_to_execute = shift ||500;
     my $count_to_be_ok   = shift ||50;
     
     my $nu = -1;
@@ -212,15 +213,21 @@ sub ref_mem_safe{
     my $old_max =0;
     for my $round (1..$count_to_execute){
         my @seq = &$sub();
-        #my $a   = {};
-        push @seq,(\my $b), [], {}, &$sub(),[],{},\my $a;
-        my $new_max = max ( _all_refs_addr( {}, @seq ,$a, ));
+		{
+			push @seq,(\my $b), [], {}, &$sub(),[],{},\my $a;
+			push @seq, \my $d, [ 'asdfa', {asdf=> 1}];
+			push @seq, \my $c, [ 'asdfa', {asdf=> 1, rrr=>[ asdf=>1]}];
+			push @seq, &$sub;
+		}
+        my $new_max = max ( _all_refs_addr( @seq , ));
             if ($old_max<$new_max){
                 $old_max = $new_max;
                 $nu = -1;
             };
         ++$nu;
-        return $round if ($nu > $count_to_be_ok) ;
+        if ($nu > $count_to_be_ok) {
+			return $round ;
+		}
     }
     return 0;
 }
