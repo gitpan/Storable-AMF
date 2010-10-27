@@ -55,7 +55,7 @@ TEST_LOOP: for my $item (@objs){
         
         ok(tt { my $a = thaw $image_amf3;1}, "thaw $name - $msg");
         #ok(tt { my $a = thaw $freeze}, "thaw $name - $msg");
-        ok(tt { \(my $a = freeze $obj)},  "freeze $name - $msg");
+        ok(tt { my $a = freeze $obj;1},  "freeze $name - $msg");
         ok(tt { my $a = thaw freeze $obj;1},  "thaw freeze $name - $msg");
         #ok(tt { my $a = \freeze thaw $image_amf3},  "freeze thaw $item - $msg");
         ok(tt { my $a = freeze thaw $freeze;1},  "freeze thaw $name - $msg");
