@@ -87,7 +87,7 @@
 #define OPT_STRICT        1
 #define OPT_DECODE_UTF8   2
 #define OPT_ENCODE_UTF8   4
-#define OPT_ERROR_RAISE   8
+#define OPT_RAISE_ERROR   8
 #define OPT_MILLSEC_DATE  16
 #define OPT_PREFER_NUMBER 32
 
@@ -126,6 +126,8 @@
 
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
+#define SIGN_BOOL_APPLY( obj, sign, mask ) ( sign > 0 ? obj|=mask : sign <0 ? obj&=~mask : 0 ) 
+#define DEFAULT_MASK OPT_PREFER_NUMBER
 
 //#define TRACE0
 struct amf3_restore_point{
@@ -134,7 +136,6 @@ struct amf3_restore_point{
     int offset_trait;
     int offset_string;
 };
-
 
 struct io_struct{
     unsigned char * ptr;
@@ -1878,15 +1879,34 @@ inline void amf3_format_one(pTHX_ struct io_struct *io, SV * one){
     }
     else {
         if (SvOK(one)){
+	    #if defined( EXPERIMENT1 )
+	    if ( (io->options & OPT_PREFER_NUMBER )){
+		if (SvNIOK(one)){
+		    if ( SvIOK( one ) ){
+			amf3_format_integer(aTHX_ io, one );
+		    }
+		    else {
+			amf3_format_double(aTHX_  io, one);
+		    }
+		}
+		else {
+		    amf3_format_string(aTHX_  io, one);
+		}
+	    }
+	    else 
+	    #endif
             if (SvPOK(one)) {
                 amf3_format_string(aTHX_  io, one);
             } else 
-            if (SvIOKp(one)){
+            if (SvIOK(one)){
                 amf3_format_integer(aTHX_  io, one);
             }
-            else if (SvNOKp(one)){
+            else if (SvNOK(one)){
                 amf3_format_double(aTHX_  io, one);
             }
+	    else {
+		io_register_error(io, ERR_BAD_OBJECT );
+	    }
         }
         else {
             amf3_format_null(aTHX_  io);
@@ -2109,7 +2129,7 @@ thaw(SV *data, ...)
             if ((error_code = Sigsetjmp(io_record.target_error, 0)) ){
                 //croak("Failed parse string. unspected EOF");
                 //TODO: ERROR CODE HANDLE
-                if (io_record.options & OPT_ERROR_RAISE){
+                if (io_record.options & OPT_RAISE_ERROR){
                     croak("Error at parse AMF0 (%d)", error_code);
                 }
                 else {
@@ -2123,7 +2143,7 @@ thaw(SV *data, ...)
                 retvalue = (SV*) (parse_one(aTHX_  &io_record));
                 retvalue = sv_2mortal(retvalue);
                 if (io_record.pos!=io_record.end){
-                    if (io_record.options & OPT_ERROR_RAISE){
+                    if (io_record.options & OPT_RAISE_ERROR){
                         croak("EOF at parse AMF0 (%d)", ERR_EXTRA_BYTE);
                     }
                     else {
@@ -2195,7 +2215,7 @@ deparse_amf(SV *data, ...)
             else {
                 //croak("Failed parse string. unspected EOF");
                 //TODO: ERROR CODE HANDLE
-                if (io_record.options & OPT_ERROR_RAISE){
+                if (io_record.options & OPT_RAISE_ERROR){
                     croak("Error at parse AMF0 (%d)", error_code);
                 }
                 else {
@@ -2228,7 +2248,7 @@ void freeze(SV *data, ... )
         sv_2mortal(io_self);
         io_out_init(aTHX_  &io_record, 0, AMF0);
         if (1 == items){
-            io_record.options = 0;
+            io_record.options = DEFAULT_MASK;
         }
         else {
             SV * opt = ST(1);
@@ -2300,7 +2320,7 @@ deparse_amf(data, ...)
                 }
             }
             else {
-                if (io_record.options & OPT_ERROR_RAISE){
+                if (io_record.options & OPT_RAISE_ERROR){
                     croak("Error at parse AMF0 (%d)", error_code);
                 }
                 else {
@@ -2331,7 +2351,7 @@ thaw(data, ...)
         mg_get(data);
         // Steting options mode
         if (1 == items){
-            io_record.options = 0;
+            io_record.options = DEFAULT_MASK;
         }
         else {
             SV * opt = ST(1);
@@ -2355,7 +2375,7 @@ thaw(data, ...)
                 retvalue = (SV*) (amf3_parse_one(aTHX_  &io_record));
                 sv_2mortal(retvalue);
                 if (io_record.pos!=io_record.end){
-                    if (io_record.options & OPT_ERROR_RAISE){
+                    if (io_record.options & OPT_RAISE_ERROR){
                         croak("AMF3 thaw  failed. EOF at parse (%d)", ERR_EOF);
                     }
                     else {
@@ -2371,7 +2391,7 @@ thaw(data, ...)
                 };
             }
             else {
-                if (io_record.options & OPT_ERROR_RAISE){
+                if (io_record.options & OPT_RAISE_ERROR){
                     croak("Error at parse AMF3 (%d)", error_code);
                 }
                 else {
@@ -2393,10 +2413,9 @@ endian()
     PPCODE:
     PerlIO_printf(PerlIO_stderr(), "%s %x\n", GAX, BYTEORDER);
 
-void freeze(data)
-    SV * data
+void freeze(SV *data, int opts=DEFAULT_MASK)
     PROTOTYPE: $;$
-    INIT:
+    PREINIT:
         SV * retvalue;
         SV * io_self;
         struct io_struct io_record;
@@ -2404,6 +2423,7 @@ void freeze(data)
     PPCODE:
         io_self= newSV(0);
         io_out_init(aTHX_  &io_record, 0, AMF3);
+	io_record.options = opts;
         if (!(error_code = Sigsetjmp(io_record.target_error, 0))){
             amf3_format_one(aTHX_  &io_record, data);
             sv_2mortal(io_self);
@@ -2459,18 +2479,19 @@ perl_date(SV *date)
 	}
 
 void
-parse_option(char * s)
+parse_option(char * s, int options=0)
     PREINIT: 
-    bool s_strict;
-    bool s_utf8_decode;
-    bool s_utf8_encode;
-    bool s_milldate;
-    bool s_raise_error;
-    int options;
+    I8 s_strict;
+    I8 s_utf8_decode;
+    I8 s_utf8_encode;
+    I8 s_milldate;
+    I8 s_raise_error;
+    I8 s_prefer_number;
+    I8 sign;
     char *word;
     char *current;
     bool error;
-    PROTOTYPE: $
+    PROTOTYPE: $;$
     ALIAS:
     Storable::AMF::parse_option=1
     Storable::AMF0::parse_option=2
@@ -2484,19 +2505,28 @@ parse_option(char * s)
     s_utf8_encode = 0;
     s_milldate    = 0;
     s_raise_error = 0;
+    s_prefer_number = 0;
     options       = 0;
     current = s;
-    for( ;*current && !isALPHA( *current ) ; ++current ); 
+    for( ;*current && ( !isALPHA( *current ) && *current!='+' && *current!='-' ) ; ++current ); 
 
     word = current;
     while( *word ){
 	++current;
 	error = 0;
+	sign  = 1;
+	if ( *word == '+' ){
+	    ++word;
+	}
+	else if ( *word =='-' ){
+	    sign = -1;
+	    ++word;
+	}
 	for( ; *current && ( isALNUM( *current ) || *current == '_' ); ++current );
 	switch( current - word ){
 	case 6:
 	    if (!strncmp("strict", word, 6)){
-		s_strict = 1;
+		s_strict = sign;
 	    }
 	    else {
 		error = 1;
@@ -2504,13 +2534,13 @@ parse_option(char * s)
 	    break;
 	case 11:
 	    if (!strncmp( "utf8_decode", word, 11)){
-		s_utf8_decode = 1;
+		s_utf8_decode = sign;
 	    }
 	    else if (!strncmp( "utf8_encode", word, 11)){
-		s_utf8_encode = 1;
+		s_utf8_encode = sign;
 	    }
 	    else if (!strncmp("raise_error", word, 9)){
-		s_raise_error=1;
+		s_raise_error=sign;
 	    }
 	    else {
 		error = 1;
@@ -2518,15 +2548,15 @@ parse_option(char * s)
 	    break;
 	case 13:
 	    if (!strncmp( "prefer_number", word, 13)){
-		options |= OPT_PREFER_NUMBER;
+		s_prefer_number = sign;
 	    }
 	    else {
-		error = 1;
+		error = sign;
 	    };
 	    break;
 	case   16:
 	    if (!strncmp("millisecond_date", word, 16)){
-		s_milldate =1;
+		s_milldate = sign;
 	    }
 	    else 
 		error = 1;
@@ -2537,14 +2567,15 @@ parse_option(char * s)
 	if (error)
 	    croak("Storable::AMF0::parse_option: unknown option '%.*s'", current - word, word);
 
-	for(; *current && !isALPHA(*current); ++current);
+	for(; *current && !isALPHA(*current) && *current!='+' && *current!='-'; ++current);
 	word = current;
     };	
-    mXPUSHi(  options | (s_strict ? OPT_STRICT : 0) | (s_milldate ? OPT_MILLSEC_DATE : 0) | \
-	    (s_utf8_decode? OPT_DECODE_UTF8:0) | (s_utf8_encode ? OPT_ENCODE_UTF8 : 0) |\
-	    (s_raise_error ? OPT_ERROR_RAISE : 0) \
-	    );
+    SIGN_BOOL_APPLY( options, s_strict,   OPT_STRICT );
+    SIGN_BOOL_APPLY( options, s_milldate, OPT_MILLSEC_DATE );
+    SIGN_BOOL_APPLY( options, s_utf8_decode, OPT_DECODE_UTF8 );
+    SIGN_BOOL_APPLY( options, s_utf8_encode, OPT_ENCODE_UTF8 );
+    SIGN_BOOL_APPLY( options, s_raise_error, OPT_RAISE_ERROR );
+    SIGN_BOOL_APPLY( options, s_prefer_number, OPT_PREFER_NUMBER );
+    mXPUSHi(  options ); 
 	
-	
-	
-MODULE = Storable::AMF
+MODULE=Storable::AMF
