@@ -3,7 +3,7 @@ use strict;
 use warnings;
 BEGIN{
 	our $VERSION;
-	$VERSION='0.84' unless $INC{'Storable/AMF0.pm'};
+	$VERSION='0.89' unless $INC{'Storable/AMF0.pm'};
 }
 use Storable::AMF0; # install and create all methods
 use Exporter 'import';
@@ -15,6 +15,7 @@ our %EXPORT_TAGS = (
           deparse_amf new_amfdate perl_date
 		  new_date
 		  parse_serializator_option
+		  parse_option
           )
     ]
 );
@@ -181,6 +182,11 @@ Speed, simplicity and agile.
   --- test if object contain lost memory fragments inside.
   (Example do { my $a = []; @$a=$a; $a})
 
+=item parse_serializator_option
+=item parse_option
+  generate option scalar for freeze/thaw/deparse_amf
+  See L<Storable::AMF0> for complete list of options
+
 =back
 
 =head1 EXPORT
@@ -206,9 +212,14 @@ L<Data::AMF>, L<Storable>, L<Storable::AMF0>, L<Storable::AMF3>
 
 Anatoliy Grishaev, <grian at cpan dot org>
 
+=head1 THANKS
+
+	Alberto Reggiori. ( basic externalized object support )
+	Adam Lounds.      ( tests and some ideas and code for boolean support )
+
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2010 by A. G. Grishaev
+Copyright (C) 2011 by A. G. Grishaev
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.8 or,
