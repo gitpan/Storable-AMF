@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Storable-AMF
-version:            0.91
+version:            0.93
 abstract:           serializing/deserializing AMF0/AMF3 data
 author:
     - Grishaev Anatoliy  <grian@cpan.org>
