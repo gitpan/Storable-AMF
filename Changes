@@ -353,6 +353,17 @@ Revision history for Perl extension Storable::AMF.
 	- added cope of amf-plus-marker  
 	- Rewrite of error reporting
 	- ( Dev remove &io_record )
+
+0.95	    2011-04-09
+	- examples change
+	- fix possible memleak with (amf_plus_marker)
+	- fix possible memleak in thaw/deparse_amf AMF3
+	- more correct creation temp structures 
+	- limit  for array size when array extend
+	- fix amf3_read_integer for big integers ( crazy typo )
+	- fix amf3_write_integer for boundary conditions
+	- added more tests for amf3 integer convertion t/08-amf3_integer.t
+	- uncomment memleak for amf3
 	
 
 

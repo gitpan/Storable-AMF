@@ -4,14 +4,13 @@ MANIFEST
 TODO
 README
 .gitignore
-examples/amf0_bench.pl
 t/GrianUtils.pm
-lib/Storable/ppport.h
+ppport.h
 lib/Storable/AMF.pm
 lib/Storable/AMF0.pm
 lib/Storable/AMF3.pm
 lib/Storable/AMF/Mapper.pm
-lib/Storable/AMF.xs
+AMF.xs
 t/AMF0/01-array-0-foo-bar-baz.pack
 t/00-compile.t
 t/01-parse_amf0.t
@@ -22,6 +21,7 @@ t/05-dclone.t
 t/06-aux-utility.t
 t/06-last-undef.t
 t/07-pod.t
+t/08-amf3-integer.t
 t/10-dual-var.t
 t/20-amf-double.t
 t/21-amf-strings.t
@@ -58,6 +58,7 @@ t/68-boolean-json.t
 t/69-to_AMF-experimental.t
 t/70-Mapper.t
 t/71-amf-plus-marker.t
+t/72-max-array.t
 t/AMF0/01-array-foo-bar-x2.pack
 t/AMF0/01-boolean-false.pack
 t/AMF0/01-boolean-true.pack
@@ -148,3 +149,12 @@ t/AMF0/zero.pack
 t/AMF3/bug.amf3
 t/AMF3/bug.dump
 META.yml
+examples/abench.pl
+examples/hulala-amf2human.pl
+examples/packet_dumper.pl
+examples/packets/amf_packet1
+examples/packets/amf_packet2
+examples/packets/amf_packet3
+examples/packets/amf_packet4
+examples/packets/failed_chunk
+examples/packets/input
