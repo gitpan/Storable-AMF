@@ -173,10 +173,7 @@ struct io_struct{
     unsigned char * ptr;
     unsigned char * pos;
     unsigned char * end;
-    void * this_perl;
     SV * sv_buffer;
-    int RV_COUNT;
-    HV * RV_HASH;
     int buffer_step_inc;
     int arr_max;
     Sigjmp_buf target_error;
@@ -206,6 +203,7 @@ inline void destroy_tmp_storage( pTHX_ SV *self);
 STATIC_INLINE SV * amf0_parse_one(pTHX_ struct io_struct * io);
 STATIC_INLINE SV * amf3_parse_one(pTHX_ struct io_struct * io);
 inline void io_in_destroy(pTHX_ struct io_struct * io, AV *);
+inline void io_out_cleanup(pTHX_ struct io_struct * io);
 
 inline void io_test_eof(pTHX_ struct io_struct *io);
 inline void io_register_error(struct io_struct *io, int);
@@ -308,6 +306,7 @@ void io_format_error(pTHX_ struct io_struct *io ){
 	}
     }
     else { /* io->status == 'w' */
+        io_out_cleanup(aTHX_ io);
 	if (io->options & OPT_RAISE_ERROR){
 	    croak("Format AMF%d: %s (ERR-%d)", io->version, message, error_code);
 	}
@@ -336,6 +335,19 @@ inline SV*  get_tmp_storage(pTHX_ SV* option){
     tmp = io->arr_string = newAV();
     tmp = io->arr_object = newAV();
 
+    io->hv_object        = newHV();
+    HvSHAREKEYS_off( io->hv_object );
+    io->hv_string        = newHV();
+    HvSHAREKEYS_off( io->hv_string );
+    io->hv_trait         = newHV();
+    HvSHAREKEYS_off( io->hv_trait );
+
+    /*
+    io->sv_buffer        = newSV(0);
+    (void)SvUPGRADE(io->sv_buffer, SVt_PV);
+    SvPOK_on( io->sv_buffer );
+    SvGROW( io->sv_buffer, 512 ); */
+
     if ( option ){
         io->options = SvIV(option);
     }
@@ -354,6 +366,10 @@ inline void destroy_tmp_storage( pTHX_ SV *self ){
         SvREFCNT_dec( (SV *) io->arr_trait );
         SvREFCNT_dec( (SV *) io->arr_string );
         SvREFCNT_dec( (SV *) io->arr_object );
+        SvREFCNT_dec( (SV *) io->hv_object );
+        SvREFCNT_dec( (SV *) io->hv_string );
+        SvREFCNT_dec( (SV *) io->hv_trait );
+        // SvREFCNT_dec( (SV *) io->sv_buffer );
         Safefree( io );  
     /*    fprintf( stderr, "Destroy\n"); */
     }
@@ -363,6 +379,13 @@ inline void io_in_cleanup(pTHX_ struct io_struct *io){
     if ( AMF3_VERSION == io->final_version ){
         av_clear( io->arr_string );
         av_clear( io->arr_trait );
+    };
+}
+inline void io_out_cleanup(pTHX_ struct io_struct *io){
+    hv_clear( io->hv_object );
+    if ( AMF3_VERSION == io->version ){
+        hv_clear( io->hv_string );
+        hv_clear( io->hv_trait );
     };
 }
 inline void io_in_init(pTHX_ struct io_struct * io,  SV* data, int amf_version, SV * sv_option){
@@ -479,24 +502,68 @@ inline void io_in_destroy(pTHX_ struct io_struct * io, AV *a){
         }
     }
 }
-inline void io_out_init(pTHX_ struct io_struct *io, SV*option, int amf_version){
+inline void io_out_init(pTHX_ struct io_struct *io, SV*sv_option, int amf_version){
     SV *sbuffer;
     unsigned int ibuf_size ;
     unsigned int ibuf_step ;
-    if ( option ){
-        if ( !SvIOK(option)){
+    io->version = amf_version;
+
+    if ( sv_option ){
+        if ( SvROK(sv_option) && sv_isobject( sv_option )){
+                struct io_struct *reuse_storage_ptr;
+                reuse_storage_ptr = INT2PTR( struct io_struct *, SvIV( SvRV( sv_option )));
+                io->options       = reuse_storage_ptr->options;
+                io->reuse = 1;
+                io->rc_string = 0;
+                io->rc_trait  = 0;
+                io->rc_object = 0;
+                
+                /*io->sv_buffer = reuse_storage_ptr->sv_buffer; */
+
+                io->hv_string = reuse_storage_ptr->hv_string;
+                io->hv_object = reuse_storage_ptr->hv_object;
+                io->hv_trait  = reuse_storage_ptr->hv_trait;
+
+    ibuf_size = 10240;
+    ibuf_step = 20480;
+
+
+    if ( io->options & OPT_TARG ){
+        dXSTARG;
+
+        io->sv_buffer = sbuffer = TARG;
+        (void)SvUPGRADE(sbuffer, SVt_PV);
+        SvPOK_on(sbuffer);
+        SvGROW( sbuffer, 512 );
+    }
+    else {
+        sbuffer = sv_2mortal(newSVpvn("",0));
+        SvGROW(sbuffer, ibuf_size);
+        io->sv_buffer = sbuffer;
+    }
+
+                io->buffer_step_inc = 1024;
+                io->ptr = (unsigned char *) SvPV_nolen(io->sv_buffer);
+                io->pos = io->ptr;
+                io->end = (unsigned char *) SvEND(io->sv_buffer);
+                io->status  = 'w';
+                return ;
+        }
+        else if ( !SvIOK(sv_option)){
             io_register_error( io, ERR_BAD_OPTION );
         }
         else {
-            io->options = SvIV( option );
+            io->options = SvIV( sv_option );
         }
     }
     else {
         io->options = DEFAULT_MASK;
     };
-    io->version = amf_version;
+    io->reuse = 0;
+    /* FIXME */
     ibuf_size = 10240;
     ibuf_step = 20480;
+
 
     if ( io->options & OPT_TARG ){
         dXSTARG;
@@ -523,18 +590,26 @@ inline void io_out_init(pTHX_ struct io_struct *io, SV*option, int amf_version){
         io->rc_trait  = 0;
         io->rc_object = 0;
 
+        HvSHAREKEYS_off( io->hv_object );
+        HvSHAREKEYS_off( io->hv_trait );
+        HvSHAREKEYS_off( io->hv_string );
+
         sv_2mortal((SV *)io->hv_string);
         sv_2mortal((SV *)io->hv_object);
         sv_2mortal((SV *)io->hv_trait);
+    }
+    else {
+        io->hv_object   = newHV();
+        io->rc_object = 0;
+        HvSHAREKEYS_off( io->hv_object ); 
+        sv_2mortal((SV*)io->hv_object);
     }
     io->buffer_step_inc = ibuf_step;
     io->ptr = (unsigned char *) SvPV_nolen(io->sv_buffer);
     io->pos = io->ptr;
     io->end = (unsigned char *) SvEND(io->sv_buffer);
     io->status  = 'w';
-    io->RV_COUNT = 0;
-    io->RV_HASH   = newHV();
-    sv_2mortal((SV*)io->RV_HASH);
+    
 }
 
 inline SV * io_buffer(struct io_struct *io){
@@ -758,14 +833,14 @@ inline void amf0_format_one(pTHX_ struct io_struct *io, SV * one){
     if (SvROK(one)){
         SV * rv = (SV*) SvRV(one);
         /*  test has stored */
-        SV **OK = hv_fetch(io->RV_HASH, (char *)(&rv), sizeof (rv), 1);
+        SV **OK = hv_fetch(io->hv_object, (char *)(&rv), sizeof (rv), 1);
         if (SvOK(*OK)) {
             amf0_format_reference(aTHX_  io, *OK);
         }
         else {
             int type = SvTYPE(rv);
-            sv_setiv(*OK, io->RV_COUNT);
-            ++io->RV_COUNT;
+            sv_setiv(*OK, io->rc_object);
+            ++io->rc_object;
 
             if (sv_isobject(one)) {
 		if ( io->options & OPT_MAPPER ){
@@ -2291,6 +2366,69 @@ inline SV * amf3_parse_one(pTHX_ struct io_struct * io){
 	return 0; /* Never reach this statement */
     }
 }
+inline SV* amf0_parse_one_tmp( pTHX_ struct io_struct *io, SV * reuse ){
+    char marker;
+    SV * RETVALUE;
+    HV * obj;
+
+    int len_next;
+    char * key;
+    SV * value;
+    int obj_pos;
+
+    io_require( io, 1 );
+    marker = *(io->pos);
+    RETVALUE = reuse;
+
+    if ( MARKER0_OBJECT != MARKER0_OBJECT || ! SvROK( reuse ) ){
+        io_register_error( io, ERR_BAD_OBJECT );
+    }
+    obj = (HV *) SvRV(reuse);
+    if ( SvTYPE( obj ) != SVt_PVHV ){
+        io_register_error( io, ERR_BAD_OBJECT );
+    }
+    ++io->pos;
+        
+
+    hv_clear( obj );
+    SvREFCNT_inc_simple_void_NN( RETVALUE );
+    av_push(io->arr_object, RETVALUE);
+    obj_pos = av_len(io->arr_object);
+    while(1){
+        len_next = io_read_u16(io);
+        if (len_next == 0) {
+            char object_end;
+            object_end= io_read_marker(io);
+            if ((object_end == MARKER0_OBJECT_END))
+            {
+                if (io->options & OPT_STRICT){
+                    SV* RETVALUE = *av_fetch(io->arr_object, obj_pos, 0);
+                    if (SvREFCNT(RETVALUE) > 1)
+                        io_register_error(io, ERR_RECURRENT_OBJECT);
+                    ;
+                    SvREFCNT_inc_simple_void_NN(RETVALUE);
+                    return RETVALUE;
+                }
+                else {
+                    SvREFCNT_inc_simple_void_NN( RETVALUE );
+                    return RETVALUE;
+                    /* return (SV*) newRV_inc((SV*)obj); */
+                }
+            }
+            else {
+                io->pos--;
+                key = "";
+                value = amf0_parse_one(aTHX_  io);
+            }
+        }
+        else {
+            key = io_read_chars(io, len_next);
+            value = amf0_parse_one(aTHX_  io);
+        }
+
+        (void) hv_store(obj, key, len_next, value, 0);
+    }
+}
 STATIC_INLINE SV * amf0_parse_one(pTHX_ struct io_struct * io){
     unsigned char marker;
     marker = (unsigned char) io_read_marker(io);
@@ -2447,6 +2585,8 @@ amf_tmp_storage(SV *option = 0)
         XPUSHs(retvalue);
 
 
+
+
 void
 thaw(SV *data, SV *sv_option = 0)
     ALIAS:
@@ -2508,7 +2648,7 @@ deparse_amf(SV *data, SV * sv_option = 0)
         }
 
 
-void freeze(SV *data, ... )
+void freeze(SV *data, SV *sv_option = 0 )
     ALIAS:
 	Storable::AMF::freeze=1
 	Storable::AMF::freeze0=2
@@ -2518,9 +2658,11 @@ void freeze(SV *data, ... )
         struct io_struct io[1];
     PPCODE:
 	PERL_UNUSED_VAR(ix);
-        io_out_init(aTHX_  io, ( 1==items ? 0 : ST(1)), AMF0_VERSION);
         if (! Sigsetjmp(io->target_error, 0)){
+            io_out_init(aTHX_  io, sv_option, AMF0_VERSION);
             amf0_format_one(aTHX_  io, data);
+            if (io->reuse )
+                io_out_cleanup(aTHX_ io);
             retvalue = io_buffer(io);
             XPUSHs(retvalue);
             sv_setsv(ERRSV, &PL_sv_undef);
@@ -2630,7 +2772,7 @@ endian()
     PPCODE:
     PerlIO_printf(PerlIO_stderr(), "%s %x\n", GAX, BYTEORDER);
 
-void freeze(SV *data, ... )
+void freeze(SV *data, SV *sv_option = 0 )
     PROTOTYPE: $;$
     PREINIT:
         SV * retvalue;
@@ -2640,8 +2782,10 @@ void freeze(SV *data, ... )
     PPCODE:
 	PERL_UNUSED_VAR(ix); 
         if (! Sigsetjmp(io->target_error, 0)){
-            io_out_init(aTHX_  io, ( 1==items ? 0 : ST(1) ),AMF3_VERSION);
+            io_out_init(aTHX_  io, sv_option, AMF3_VERSION);
             amf3_format_one(aTHX_  io, data);
+            if (io->reuse )
+                io_out_cleanup(aTHX_ io);
             retvalue = io_buffer(io);
             XPUSHs(retvalue);
             sv_setsv(ERRSV, &PL_sv_undef);
@@ -2844,5 +2988,31 @@ total_sv()
         }
     }
     mXPUSHi( visited );
+
+MODULE=Storable::AMF0 PACKAGE = Storable::AMF 
+
+void 
+thaw0_sv( SV * data, SV * element, SV *sv_option = 0)
+    INIT: 
+        SV * retvalue;
+        struct io_struct io[1];
+    PPCODE:
+	/* PERL_UNUSED_VAR(ix); */
+        if ( ! Sigsetjmp(io->target_error, 0) ){
+            io->subname = "Storable::AMF0::thaw( data, option )";
+            io_in_init(aTHX_  io, data, AMF0_VERSION, sv_option);
+            retvalue = (SV*) (amf0_parse_one_tmp( aTHX_  io, element ));
+            /* clean up storable unless need */
+            if ( io->reuse )
+                io_in_cleanup(aTHX_ io);
+            retvalue = sv_2mortal(retvalue);
+            io_test_eof( aTHX_ io );
+            sv_setsv(ERRSV, &PL_sv_undef);
+
+            /* XPUSHs(retvalue); */
+        }
+        else {
+            io_format_error( aTHX_ io );
+        }
 
 MODULE=Storable::AMF
