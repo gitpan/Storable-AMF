@@ -1231,10 +1231,12 @@ STATIC_INLINE SV * amf0_parse_object(pTHX_ struct io_struct * io){
     int len_next;
     char * key;
     SV * value;
-    int obj_pos;
+    int  obj_pos;
+    SV *RETVALUE;
 
     obj =  newHV();
-    av_push(io->arr_object, newRV_noinc((SV *) obj));
+    RETVALUE = newRV_noinc( (SV *) obj );
+    av_push(io->arr_object, RETVALUE);
     obj_pos = av_len(io->arr_object);
     while(1){
         len_next = io_read_u16(io);
@@ -1244,7 +1246,6 @@ STATIC_INLINE SV * amf0_parse_object(pTHX_ struct io_struct * io){
             if ((object_end == MARKER0_OBJECT_END))
             {
                 if (io->options & OPT_STRICT){
-                    SV* RETVALUE = *av_fetch(io->arr_object, obj_pos, 0);
                     if (SvREFCNT(RETVALUE) > 1)
                         io_register_error(io, ERR_RECURRENT_OBJECT);
                     ;
@@ -1252,7 +1253,8 @@ STATIC_INLINE SV * amf0_parse_object(pTHX_ struct io_struct * io){
                     return RETVALUE;
                 }
                 else {
-                    return (SV*) newRV_inc((SV*)obj);
+                    SvREFCNT_inc_simple_void_NN(RETVALUE);
+                    return RETVALUE;
                 }
             }
             else {
@@ -1364,7 +1366,7 @@ STATIC_INLINE SV* amf0_parse_ecma_array(pTHX_ struct io_struct *io){
     av_extend(this_array, array_len);
 
     av_refs_len = av_len(refs);
-    av_push(refs, newRV_noinc((SV*) this_array));
+    av_push(refs, RETVALUE = newRV_noinc((SV*) this_array));
 
     #ifdef TRACEA
     fprintf( stderr, "Start parse array %d\n", array_len);
@@ -1437,10 +1439,8 @@ STATIC_INLINE SV* amf0_parse_ecma_array(pTHX_ struct io_struct *io){
     fprintf( stderr, "position %d\n", io_position(io));
     #endif
     if ((last_len == 0) && (last_marker == MARKER0_OBJECT_END)) {
-        RETVALUE = *av_fetch(refs, av_refs_len + 1, 0);
         if (io->options & OPT_STRICT && (SvREFCNT(RETVALUE) > 1))
-        io_register_error(io, ERR_RECURRENT_OBJECT);
-        ;
+            io_register_error(io, ERR_RECURRENT_OBJECT); ;
         SvREFCNT_inc_simple_void_NN(RETVALUE);
     }
     else{
@@ -1448,6 +1448,16 @@ STATIC_INLINE SV* amf0_parse_ecma_array(pTHX_ struct io_struct *io){
         int i;
         for( i = av_len(refs) - av_refs_len; i>0 ;--i){
             SV * ref = av_pop(refs);
+            SV * value= SvRV(ref);
+            if ( SVt_PVHV == SvTYPE( value ) )
+                hv_clear( (HV *) value );
+            else if ( SVt_PVAV == SvTYPE( value ))
+                av_clear( (AV *) value);
+            else {
+                /* FIXME I am not sure about simple mortalizing values this need to be reused or cleanups*/
+                sv_2mortal(ref);
+                io_register_error( io, ERR_INTERNAL );
+            }
             sv_2mortal(ref);
         }
         io_set_position(io, position);
@@ -2581,11 +2591,8 @@ amf_tmp_storage(SV *option = 0)
     INIT:
         SV * retvalue;
     PPCODE:
-        retvalue = get_tmp_storage(aTHX, option);
+        retvalue = get_tmp_storage(aTHX_ option);
         XPUSHs(retvalue);
-
-
-
 
 void
 thaw(SV *data, SV *sv_option = 0)
