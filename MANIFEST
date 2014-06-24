@@ -164,3 +164,4 @@ examples/packets/amf_packet3
 examples/packets/amf_packet4
 examples/packets/failed_chunk
 examples/packets/input
+META.json                                Module JSON meta-data (added by MakeMaker)

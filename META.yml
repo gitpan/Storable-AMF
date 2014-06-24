@@ -1,28 +1,28 @@
---- #YAML:1.0
-name:               Storable-AMF
-version:            1.00
-abstract:           serializing/deserializing AMF0/AMF3 data
+---
+abstract: 'serializing/deserializing AMF0/AMF3 data'
 author:
-    - Grishaev Anatoliy  <grian@cpan.org>
-license:            perl
-distribution_type:  module
-configure_requires:
-    ExtUtils::MakeMaker:  0
+  - 'Grishaev Anatoliy  <grian@cpan.org>'
 build_requires:
-    ExtUtils::MakeMaker:  0
-requires:
-    perl:      5.008001
-    XSLoader:  0.06
-resources:
-    bugtracker:  http://rt.cpan.org/NoAuth/Bugs.html?Dist=Storable-AMF
-    homepage:    http://search.cpan.org/dist/Storable-AMF
-    license:     http://dev.perl.org/licenses/
-    repository:  git://github.com/Grian/Storable-AMF.git
-no_index:
-    directory:
-        - t
-        - inc
-generated_by:       ExtUtils::MakeMaker version 6.55_02
+  ExtUtils::MakeMaker: 0
+configure_requires:
+  ExtUtils::MakeMaker: 0
+dynamic_config: 1
+generated_by: 'ExtUtils::MakeMaker version 6.66, CPAN::Meta::Converter version 2.120921'
+license: perl
 meta-spec:
-    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
-    version:  1.4
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Storable-AMF
+no_index:
+  directory:
+    - t
+    - inc
+requires:
+  XSLoader: 0.06
+  perl: 5.008001
+resources:
+  bugtracker: http://rt.cpan.org/NoAuth/Bugs.html?Dist=Storable-AMF
+  homepage: http://search.cpan.org/dist/Storable-AMF
+  license: http://dev.perl.org/licenses/
+  repository: git://github.com/Grian/Storable-AMF.git
+version: 1.02

@@ -390,3 +390,10 @@ Revision history for Perl extension Storable::AMF.
         - speed improvement
         - major perl version fixes ( compile for 5.10-5.14 )
 
+1.01    2011-08-19
+        - remove development notice
+        - some fix in documentaion
+
+1.02    2014-06-24
+        - fixed test stability over perl  above 5.19.1
+        - remove gcc warnings
