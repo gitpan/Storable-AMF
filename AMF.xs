@@ -22,6 +22,9 @@
 
 #ifndef inline /* don't like borgs definitions */ /* inline is keyword for STDC compiler  */
 #   if defined(__GNUC__) || defined(__cplusplus__) || (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L))
+#   	if defined(__APPLE__)
+#	    define inline 
+#	endif
 #   else
 #	if defined(WIN32) && defined(_MSV) /* Microsoft Compiler */
 #	    define inline _inline
@@ -96,6 +99,7 @@
 #define OPT_JSON_BOOLEAN  64
 #define OPT_MAPPER        128
 #define OPT_TARG          256
+#define OPT_SKIP_BAD      512
 
 #define EXPERIMENT1
 
@@ -879,7 +883,11 @@ inline void amf0_format_one(pTHX_ struct io_struct *io, SV * one){
 		}
 		else {		    
                     /* may be i has to format as undef */
-                    io_register_error(io, ERR_BAD_OBJECT);
+		    if ( io->options & OPT_SKIP_BAD ){
+			io_write_marker( aTHX_ io, MARKER0_UNDEFINED );
+		    }
+		    else 
+			io_register_error(io, ERR_BAD_OBJECT);
                 }
             }
             else if (SvTYPE(rv) == SVt_PVAV) 
@@ -892,7 +900,10 @@ inline void amf0_format_one(pTHX_ struct io_struct *io, SV * one){
                 amf0_format_scalar_ref(aTHX_  io, (SV*) rv);
             }
             else {
-                io_register_error(io, ERR_BAD_OBJECT);
+		if ( io->options & OPT_SKIP_BAD ) 
+		    io_write_marker( aTHX_ io, MARKER0_UNDEFINED );
+		else
+		    io_register_error(io, ERR_BAD_OBJECT);
             }
         }
     }
@@ -912,8 +923,15 @@ inline void amf0_format_one(pTHX_ struct io_struct *io, SV * one){
 		if (SvPOK(one)){
 		    amf0_format_string(aTHX_  io, one);
 		}
-		else {
+		else if ( SvNIOK(one) ){
 		    amf0_format_number(aTHX_  io, one);
+		}
+		else {
+		    if (io->options & OPT_SKIP_BAD ){
+			io_write_marker(aTHX_ io, MARKER0_UNDEFINED );
+		    }
+		    else 
+			io_register_error(io, ERR_BAD_OBJECT);
 		}
         }
         else {
@@ -1233,7 +1251,7 @@ STATIC_INLINE SV * amf0_parse_object(pTHX_ struct io_struct * io){
         if (len_next == 0) {
             char object_end;
             object_end= io_read_marker(io);
-            if ((object_end == MARKER0_OBJECT_END))
+            if ( MARKER0_OBJECT_END == object_end )
             {
                 if (io->options & OPT_STRICT){
                     if (SvREFCNT(RETVALUE) > 1)
@@ -1362,7 +1380,7 @@ STATIC_INLINE SV* amf0_parse_ecma_array(pTHX_ struct io_struct *io){
     fprintf( stderr, "Start parse array %d\n", array_len);
     fprintf( stderr, "position %d\n", io_position(io));
     #endif
-    if (0 <= array_len){
+    if (1){
         bool ok;
         UV index;
         key_len = io_read_u16(io);
@@ -1514,7 +1532,7 @@ inline SV *parse_scalar_ref(pTHX_ struct io_struct *io){
             if (len_next == 0) {
                 char object_end;
                 object_end= io_read_marker(io);
-                if ((object_end == MARKER0_OBJECT_END))
+                if (MARKER0_OBJECT_END == object_end)
                 {
                     SV* RETVALUE = *av_fetch(io->arr_object, obj_pos, 0);
                     if (!value)
@@ -2224,7 +2242,12 @@ inline void amf3_format_one(pTHX_ struct io_struct *io, SV * one){
 		amf3_format_reference(aTHX_  io, *OK);
 	    }
             else {
-                io_register_error(io, ERR_BAD_OBJECT);
+		if ( io->options & OPT_SKIP_BAD ){
+		    io_write_marker( aTHX_ io, MARKER3_UNDEF );
+		}
+		else {
+		    io_register_error(io, ERR_BAD_OBJECT);
+		}
             }
         }
         else {
@@ -2232,7 +2255,7 @@ inline void amf3_format_one(pTHX_ struct io_struct *io, SV * one){
             (void) hv_store(io->hv_object, (char *) (&rv), sizeof (rv), newSViv(io->rc_object), 0);
             ++io->rc_object;
 
-	    if ( io->options && OPT_MAPPER ){
+	    if ( io->options & OPT_MAPPER ){
 		if ( sv_isobject( one ) ){
 		    
 		    GV *to_amf = gv_fetchmethod_autoload (SvSTASH (rv), "TO_AMF", 0);
@@ -2271,7 +2294,10 @@ inline void amf3_format_one(pTHX_ struct io_struct *io, SV * one){
 		amf3_format_date(aTHX_ io, rv );
 	    }
             else {
-                io_register_error(io, ERR_BAD_OBJECT);
+		if ( io->options & OPT_SKIP_BAD )
+		    io_write_marker( aTHX_ io, MARKER3_UNDEF );
+		else 
+		    io_register_error(io, ERR_BAD_OBJECT);
             }
         }
     }
@@ -2303,7 +2329,10 @@ inline void amf3_format_one(pTHX_ struct io_struct *io, SV * one){
                 amf3_format_double(aTHX_  io, one);
             }
 	    else {
-		io_register_error(io, ERR_BAD_OBJECT );
+		if ( io->options & OPT_SKIP_BAD )
+		    io_write_marker( aTHX_ io, MARKER3_UNDEF );
+		else 
+		    io_register_error(io, ERR_BAD_OBJECT );
 	    }
         }
         else {
@@ -2393,7 +2422,7 @@ inline SV* amf0_parse_one_tmp( pTHX_ struct io_struct *io, SV * reuse ){
         if (len_next == 0) {
             char object_end;
             object_end= io_read_marker(io);
-            if ((object_end == MARKER0_OBJECT_END))
+            if (MARKER0_OBJECT_END == object_end)
             {
                 if (io->options & OPT_STRICT){
                     SV* RETVALUE = *av_fetch(io->arr_object, obj_pos, 0);
@@ -2933,7 +2962,7 @@ parse_option(char * s, int options=0)
 	    error = 1;
 	};
 	if (error)
-	    croak("Storable::AMF0::parse_option: unknown option '%.*s'", current - word, word);
+	    croak("Storable::AMF0::parse_option: unknown option '%.*s'", (int)(current - word), word);
 
 	for(; *current && !isALPHA(*current) && *current!='+' && *current!='-'; ++current);
 	word = current;
@@ -2960,7 +2989,7 @@ total_sv()
         SV * svi;
         /* fprintf( stderr, "=%p %d\n", sva, SvREFCNT( sva ) ); */
         for( svi = sva + 1; svi<svend; ++svi ){
-            if ( SvTYPE(svi) != SVTYPEMASK && SvREFCNT(svi) ){
+            if ( (unsigned int)SvTYPE(svi) != SVTYPEMASK && SvREFCNT(svi) ){
                 /** skip pads, they have a PVAV as their first element inside a PVAV **/
                 if (SvTYPE(svi) == SVt_PVAV &&  av_len( (AV*) svi) != -1) {
                     SV** first = AvARRAY((AV*)svi);
